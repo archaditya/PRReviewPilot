@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+*/node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pino.log*
+
+# Keys & Secrets
+*.pem
+*.key
+secrets/

@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: reviewpilot-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reviewpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reviewpilot_prod_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-reviewpilot_prod}
+    volumes:
+      - reviewpilot_postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reviewpilot} -d ${POSTGRES_DB:-reviewpilot_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reviewpilot-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: reviewpilot-prod-redis
+    restart: unless-stopped
+    volumes:
+      - reviewpilot_redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reviewpilot-network
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    container_name: reviewpilot-prod-ai
+    restart: unless-stopped
+    environment:
+      - PORT=8001
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY:-internal-ai-key}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reviewpilot-network
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: reviewpilot-prod-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - APP_URL=${APP_URL}
+      - API_URL=${API_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-reviewpilot}:${POSTGRES_PASSWORD:-reviewpilot_prod_secret}@postgres:5432/${POSTGRES_DB:-reviewpilot_prod}
+      - REDIS_URL=redis://redis:6379
+      - AI_SERVICE_URL=http://ai-service:8001
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY:-internal-ai-key}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_SLUG=${GITHUB_APP_SLUG}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - BITBUCKET_CLIENT_ID=${BITBUCKET_CLIENT_ID}
+      - BITBUCKET_CLIENT_SECRET=${BITBUCKET_CLIENT_SECRET}
+      - BITBUCKET_WEBHOOK_SECRET=${BITBUCKET_WEBHOOK_SECRET}
+      - BITBUCKET_REDIRECT_URI=${BITBUCKET_REDIRECT_URI}
+    ports:
+      - "${API_PORT:-4060}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reviewpilot-network
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: reviewpilot-prod-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3060}:3000"
+    depends_on:
+      - api
+    networks:
+      - reviewpilot-network
+
+volumes:
+  reviewpilot_postgres_data_prod:
+  reviewpilot_redis_data_prod:
+
+networks:
+  reviewpilot-network:
+    driver: bridge
