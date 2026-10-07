@@ -6,7 +6,7 @@ from .core.config import settings
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
-    description="High-precision code review analysis engine for ReviewPilot",
+    description="High-precision code review analysis engine for PRReviewPilot",
 )
 
 app.add_middleware(
@@ -23,7 +23,7 @@ app.include_router(review_router)
 def health():
     return {
         "status": "ok",
-        "service": "reviewpilot-ai-service",
+        "service": "prreviewpilot-ai-service",
         "model": settings.openai_model,
     }
 

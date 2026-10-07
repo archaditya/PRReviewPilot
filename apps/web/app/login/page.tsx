@@ -59,7 +59,7 @@ export default function LoginPage() {
             <GitPullRequest className="w-6 h-6 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-white">
-            {mode === 'login' ? 'Welcome Back to ReviewPilot' : 'Create Your ReviewPilot Account'}
+            {mode === 'login' ? 'Welcome Back to PRReviewPilot' : 'Create Your PRReviewPilot Account'}
           </h2>
           <p className="mt-1.5 text-xs text-gray-400">
             {mode === 'login'

@@ -1,13 +1,13 @@
 {
-  "name": "reviewpilot-monorepo",
+  "name": "prreviewpilot-monorepo",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "dev:api": "npm --workspace=@reviewpilot/api run dev",
-    "dev:web": "npm --workspace=@reviewpilot/web run dev",
+    "dev:api": "npm --workspace=@prreviewpilot/api run dev",
+    "dev:web": "npm --workspace=@prreviewpilot/web run dev",
     "docker:up": "docker compose -f docker-compose.local.yml up -d",
     "docker:down": "docker compose -f docker-compose.local.yml down"
   }

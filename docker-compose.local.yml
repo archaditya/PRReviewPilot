@@ -3,30 +3,30 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: reviewpilot-postgres
+    container_name: prreviewpilot-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-reviewpilot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reviewpilot_secret}
-      POSTGRES_DB: ${POSTGRES_DB:-reviewpilot_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-prreviewpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prreviewpilot_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-prreviewpilot_dev}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - prreviewpilot_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reviewpilot} -d ${POSTGRES_DB:-reviewpilot_dev}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prreviewpilot} -d ${POSTGRES_DB:-prreviewpilot_dev}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: reviewpilot-redis
+    container_name: prreviewpilot-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6380}:6379"
     volumes:
-      - redis_data:/data
+      - prreviewpilot_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,5 +34,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
-  redis_data:
+  prreviewpilot_postgres_data:
+  prreviewpilot_redis_data:

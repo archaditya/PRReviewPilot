@@ -23,7 +23,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <GitPullRequest className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg text-white">ReviewPilot</span>
+            <span className="font-bold text-lg text-white">PRReviewPilot</span>
           </Link>
           <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-semibold border border-indigo-500/20">
             Documentation

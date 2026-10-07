@@ -2,7 +2,7 @@ import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    app_name: str = "ReviewPilot AI Service"
+    app_name: str = "PRReviewPilot AI Service"
     port: int = int(os.getenv("PORT", "8001"))
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")

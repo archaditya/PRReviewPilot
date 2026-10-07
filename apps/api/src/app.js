@@ -37,7 +37,7 @@ if (config.env !== 'test') {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'reviewpilot-api',
+    service: 'prreviewpilot-api',
     timestamp: new Date().toISOString(),
     env: config.env,
   });

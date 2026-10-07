@@ -1,8 +1,8 @@
 {
-  "name": "@reviewpilot/web",
+  "name": "@prreviewpilot/web",
   "version": "1.0.0",
   "private": true,
-  "description": "ReviewPilot SaaS Web Dashboard for GitHub & Bitbucket AI Code Reviews",
+  "description": "PRReviewPilot SaaS Web Dashboard for GitHub & Bitbucket AI Code Reviews",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

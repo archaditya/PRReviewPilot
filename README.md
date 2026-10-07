@@ -1,4 +1,4 @@
-# ReviewPilot 🚀
+# PRReviewPilot 🚀
 
 > **Production AI Code Review Engine for GitHub & Bitbucket Cloud**
 > Autonomous code review, security vulnerability detection, and inline pull request comments.
@@ -18,7 +18,7 @@
 ## 🏗️ Architecture
 
 ```
-ReviewPilot/
+PRReviewPilot/
 ├── apps/
 │   ├── api/             # Node.js (Express + Sequelize) REST API & Provider Abstraction
 │   ├── ai-service/      # Python (FastAPI + OpenAI) Code Review Agent
@@ -64,4 +64,4 @@ npm install
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to access the ReviewPilot Dashboard!
+Visit [http://localhost:3000](http://localhost:3000) to access the PRReviewPilot Dashboard!

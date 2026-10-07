@@ -245,7 +245,7 @@ class ReviewService {
       low: '🟢 **LOW RISK**',
     }[analysis.risk_level || 'low'];
 
-    let md = `## 🤖 ReviewPilot Automated Code Review\n\n`;
+    let md = `## 🤖 PRReviewPilot Automated Code Review\n\n`;
     md += `**Overall Assessment:** ${riskBadge}\n\n`;
     md += `${analysis.summary || 'Automated code review summary'}\n\n`;
 
@@ -257,13 +257,13 @@ class ReviewService {
         md += `| \`${f.filePath}\` | ${f.lineNumber || 'N/A'} | ${f.severity} | ${f.category} | ${f.message.replace(/\|/g, '-').slice(0, 80)}... |\n`;
       }
       if (findings.length > 10) {
-        md += `\n*... and ${findings.length - 10} more findings. View full report in the ReviewPilot dashboard.*\n`;
+        md += `\n*... and ${findings.length - 10} more findings. View full report in the PRReviewPilot dashboard.*\n`;
       }
     } else {
       md += `✅ **No high-risk issues found in this pull request! Clean code.**\n`;
     }
 
-    md += `\n---\n*Powered by [ReviewPilot](https://reviewpilot.dev) — Production AI Code Review for GitHub & Bitbucket*`;
+    md += `\n---\n*Powered by [PRReviewPilot](https://prreviewpilot.com) — Production AI Code Review for GitHub & Bitbucket*`;
     return md;
   }
 }

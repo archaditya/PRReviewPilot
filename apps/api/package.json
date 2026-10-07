@@ -1,8 +1,8 @@
 {
-  "name": "@reviewpilot/api",
+  "name": "@prreviewpilot/api",
   "version": "1.0.0",
   "private": true,
-  "description": "ReviewPilot API - SaaS Backend for AI Code Reviews (GitHub + Bitbucket)",
+  "description": "PRReviewPilot API - SaaS Backend for AI Code Reviews (GitHub + Bitbucket)",
   "main": "src/server.js",
   "engines": {
     "node": ">=20"

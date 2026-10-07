@@ -5,9 +5,9 @@ export default function DocsOverviewPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-extrabold text-white">ReviewPilot Documentation & Integration Guide</h1>
+        <h1 className="text-3xl font-extrabold text-white">PRReviewPilot Documentation & Integration Guide</h1>
         <p className="text-sm text-gray-400 mt-2 leading-relaxed">
-          Welcome to the official developer guide for ReviewPilot. Learn how to connect your GitHub and Bitbucket Cloud repositories, configure automated PR reviews, customize strictness policies, and explore blast radius dependency graphs.
+          Welcome to the official developer guide for PRReviewPilot. Learn how to connect your GitHub and Bitbucket Cloud repositories, configure automated PR reviews, customize strictness policies, and explore blast radius dependency graphs.
         </p>
       </div>
 

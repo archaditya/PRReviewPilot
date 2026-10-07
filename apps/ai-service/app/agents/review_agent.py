@@ -7,7 +7,7 @@ from ..utils.diff_capping import cap_diff
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are ReviewPilot AI — a principal software engineer and automated code reviewer.
+SYSTEM_PROMPT = """You are PRReviewPilot AI — a principal software engineer and automated code reviewer.
 Your job is to thoroughly analyze Git pull request diffs and output structured code review findings.
 
 Focus areas:

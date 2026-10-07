@@ -12,7 +12,7 @@ export default function HomePage() {
               <GitPullRequest className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-              ReviewPilot
+              PRReviewPilot
             </span>
           </div>
 
@@ -107,7 +107,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-800 py-8 text-center text-xs text-gray-500">
-        ReviewPilot © 2026. Production AI Code Review Engine.
+        PRReviewPilot © 2026. Production AI Code Review Engine.
       </footer>
     </div>
   );

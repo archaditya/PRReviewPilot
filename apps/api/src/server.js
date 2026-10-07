@@ -18,10 +18,10 @@ async function start() {
     }
 
     server = app.listen(config.port, () => {
-      logger.info(`ReviewPilot API running on port ${config.port} [${config.env}]`);
+      logger.info(`PRReviewPilot API running on port ${config.port} [${config.env}]`);
     });
   } catch (err) {
-    logger.fatal({ err }, 'Failed to initialize ReviewPilot API');
+    logger.fatal({ err }, 'Failed to initialize PRReviewPilot API');
     process.exit(1);
   }
 }

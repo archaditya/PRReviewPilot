@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'ReviewPilot — Production AI Code Review for GitHub & Bitbucket',
+  title: 'PRReviewPilot — Production AI Code Review for GitHub & Bitbucket',
   description: 'Automate code reviews, detect security vulnerabilities, and streamline PR approvals across GitHub and Bitbucket Cloud.',
 };
 
