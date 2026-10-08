@@ -157,7 +157,42 @@ class RepoController {
         return res.status(404).json({ success: false, error: 'Repository not found' });
       }
 
-      return res.json({ success: true, repository: repo });
+      // Fetch recent review jobs for this repository
+      const jobs = await db.ReviewJob.findAll({
+        where: { repositoryId: id },
+        include: [{ model: db.PullRequest, as: 'pullRequest' }],
+        order: [['createdAt', 'DESC']],
+        limit: 30,
+      });
+
+      const totalJobs = await db.ReviewJob.count({ where: { repositoryId: id } });
+      const completedJobs = await db.ReviewJob.count({ where: { repositoryId: id, status: 'completed' } });
+      const highRiskJobs = await db.ReviewJob.count({
+        where: {
+          repositoryId: id,
+          riskLevel: ['high', 'critical'],
+        },
+      });
+
+      let totalFindings = 0;
+      let totalTokens = 0;
+      jobs.forEach((j) => {
+        totalFindings += (j.findingsCount || 0);
+        totalTokens += (j.tokensUsed || 0);
+      });
+
+      return res.json({
+        success: true,
+        repository: repo,
+        jobs,
+        stats: {
+          totalReviews: totalJobs,
+          completedReviews: completedJobs,
+          highRiskReviews: highRiskJobs,
+          totalFindings,
+          totalTokens,
+        },
+      });
     } catch (err) {
       next(err);
     }
@@ -167,17 +202,23 @@ class RepoController {
   async updateRepositoryConfig(req, res, next) {
     try {
       const { id } = req.params;
-      const { reviewConfig } = req.body;
+      const { reviewConfig, status } = req.body;
 
       const repo = await db.Repository.findByPk(id);
       if (!repo) {
         return res.status(404).json({ success: false, error: 'Repository not found' });
       }
 
-      repo.reviewConfig = {
-        ...repo.reviewConfig,
-        ...reviewConfig,
-      };
+      if (status && ['active', 'paused', 'archived'].includes(status)) {
+        repo.status = status;
+      }
+
+      if (reviewConfig) {
+        repo.reviewConfig = {
+          ...repo.reviewConfig,
+          ...reviewConfig,
+        };
+      }
 
       await repo.save();
       return res.json({ success: true, repository: repo });

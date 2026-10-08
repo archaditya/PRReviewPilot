@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { GitFork, GitBranch, Plus, ExternalLink, Settings2, CheckCircle2, Shield, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { GitFork, GitBranch, Plus, ExternalLink, Settings2, CheckCircle2, Shield, RefreshCw, ChevronRight } from 'lucide-react';
 
 interface Repo {
   id: string;
@@ -239,10 +240,10 @@ export default function RepositoriesPage() {
         ) : (
           <div className="divide-y divide-gray-800 text-sm">
             {repos.map((repo) => (
-              <div key={repo.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-800/20 transition">
-                <div className="space-y-1">
+              <div key={repo.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-800/20 transition group">
+                <Link href={`/dashboard/repositories/${repo.id}`} className="space-y-1 flex-1 cursor-pointer">
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-white text-base">{repo.providerFullName || repo.name}</span>
+                    <span className="font-bold text-white text-base group-hover:text-indigo-400 transition">{repo.providerFullName || repo.name}</span>
                     {repo.provider === 'github' ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-800 text-gray-300">GitHub App</span>
                     ) : (
@@ -251,8 +252,12 @@ export default function RepositoriesPage() {
                   </div>
                   <div className="text-xs text-gray-400 flex items-center space-x-4">
                     <span>Default branch: <code className="text-indigo-300">{repo.defaultBranch || 'main'}</code></span>
+                    <span className="text-indigo-400 text-[11px] group-hover:underline flex items-center gap-1">
+                      <span>View details, telemetry & rules</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                </div>
+                </Link>
 
                 {/* Controls */}
                 <div className="flex items-center space-x-4">
@@ -281,6 +286,14 @@ export default function RepositoriesPage() {
                   >
                     {repo.isActive !== false ? '● Reviewing Active' : '○ Paused'}
                   </button>
+
+                  <Link
+                    href={`/dashboard/repositories/${repo.id}`}
+                    className="p-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white transition"
+                    title="Open Repository Analytics & Config"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
                 </div>
               </div>
             ))}
