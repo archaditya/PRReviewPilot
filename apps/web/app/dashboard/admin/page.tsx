@@ -346,7 +346,8 @@ export default function AdminMonitoringPage() {
                     </td>
                   </tr>
                 );
-              })}
+              })
+            )}
             </tbody>
           </table>
         </div>
