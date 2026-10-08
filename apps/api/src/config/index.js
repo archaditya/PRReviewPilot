@@ -50,6 +50,12 @@ const config = {
     webhookSecret: process.env.BITBUCKET_WEBHOOK_SECRET || '',
     redirectUri: process.env.BITBUCKET_REDIRECT_URI || 'http://localhost:4000/api/auth/callback/bitbucket',
   },
+
+  brevo: {
+    apiKey: process.env.BREVO_API_KEY || '',
+    senderEmail: process.env.BREVO_SENDER_EMAIL || process.env.ADMIN_EMAIL || 'support@archadi.dev',
+    senderName: process.env.BREVO_SENDER_NAME || 'PRReviewPilot',
+  },
 };
 
 module.exports = config;

@@ -11,6 +11,7 @@ RUN apk add --no-cache curl && \
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=base /app ./
+RUN mkdir -p /app/logs && chown -R app:app /app
 USER app
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --retries=5 \

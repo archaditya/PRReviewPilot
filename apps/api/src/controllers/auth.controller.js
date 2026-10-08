@@ -264,6 +264,39 @@ class AuthController {
     res.clearCookie('reviewpilot_token');
     return res.json({ success: true, message: 'Logged out successfully' });
   }
+
+  // POST /api/auth/change-password
+  async changePassword(req, res, next) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const result = await authService.changePassword(req.user.id, { currentPassword, newPassword });
+      return res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // POST /api/auth/forgot-password
+  async forgotPassword(req, res, next) {
+    try {
+      const { email } = req.body;
+      const result = await authService.forgotPassword({ email });
+      return res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // POST /api/auth/reset-password
+  async resetPassword(req, res, next) {
+    try {
+      const { token, newPassword } = req.body;
+      const result = await authService.resetPassword({ token, newPassword });
+      return res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new AuthController();

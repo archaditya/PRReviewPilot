@@ -1,8 +1,10 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const db = require('../models');
 const config = require('../config');
 const { getProvider } = require('../integrations/providers');
 const sessionService = require('./session.service');
+const emailService = require('./email.service');
 const logger = require('../utils/logger');
 
 class AuthService {
@@ -206,6 +208,99 @@ class AuthService {
     });
 
     return { user, org, ...session };
+  }
+
+  async changePassword(userId, { currentPassword, newPassword }) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters long.');
+    }
+
+    const user = await db.User.findByPk(userId);
+    if (!user) {
+      throw new Error('User not found.');
+    }
+
+    if (user.passwordHash) {
+      if (!currentPassword) {
+        throw new Error('Current password is required.');
+      }
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        throw new Error('Current password does not match.');
+      }
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    logger.info({ userId: user.id }, '[AUTH] Password changed successfully');
+    return { success: true, message: 'Password updated successfully' };
+  }
+
+  async forgotPassword({ email }) {
+    if (!email) {
+      throw new Error('Email address is required.');
+    }
+
+    const user = await db.User.findOne({ where: { email: email.toLowerCase().trim() } });
+    if (!user) {
+      return { success: true, message: 'If an account with this email exists, a reset link has been dispatched.' };
+    }
+
+    const hashSlice = (user.passwordHash || 'oauth-initial-hash').slice(-10);
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, hashSlice },
+      config.jwt.secret,
+      { expiresIn: '1h' }
+    );
+
+    const resetUrl = `${config.appUrl}/reset-password?token=${token}`;
+
+    await emailService.sendPasswordResetEmail({
+      toEmail: user.email,
+      toName: user.name,
+      resetUrl,
+    });
+
+    return {
+      success: true,
+      message: 'If an account with this email exists, a reset link has been dispatched.',
+      resetUrl: config.env !== 'production' ? resetUrl : undefined,
+    };
+  }
+
+  async resetPassword({ token, newPassword }) {
+    if (!token) {
+      throw new Error('Password reset token is required.');
+    }
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters long.');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt.secret);
+    } catch (err) {
+      throw new Error('The password reset link is invalid or has expired. Please request a new one.');
+    }
+
+    const user = await db.User.findByPk(decoded.userId);
+    if (!user) {
+      throw new Error('User account not found.');
+    }
+
+    const currentHashSlice = (user.passwordHash || 'oauth-initial-hash').slice(-10);
+    if (decoded.hashSlice !== currentHashSlice) {
+      throw new Error('This password reset link has already been used. Please request a new one.');
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    logger.info({ userId: user.id }, '[AUTH] Password reset successfully via token');
+    return { success: true, message: 'Password has been reset successfully. You can now sign in.' };
   }
 }
 
