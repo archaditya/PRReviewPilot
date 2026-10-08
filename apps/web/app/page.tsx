@@ -53,7 +53,7 @@ export default function HomePage() {
         {/* CTA Buttons */}
         <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
           <a
-            href="http://localhost:4000/api/auth/login/github"
+            href="/api/auth/login/github"
             className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gray-900 border border-gray-700 hover:border-gray-500 text-white font-semibold flex items-center justify-center space-x-3 transition shadow-lg"
           >
             <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -63,7 +63,7 @@ export default function HomePage() {
           </a>
 
           <a
-            href="http://localhost:4000/api/auth/login/bitbucket"
+            href="/api/auth/login/bitbucket"
             className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-blue-600/10 border border-blue-500/40 hover:border-blue-400 text-blue-300 font-semibold flex items-center justify-center space-x-3 transition shadow-lg"
           >
             <GitBranch className="w-5 h-5 text-blue-400" />

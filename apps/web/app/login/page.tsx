@@ -20,7 +20,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const endpoint = mode === 'register' ? 'http://localhost:4000/api/auth/register' : 'http://localhost:4000/api/auth/login';
+      const endpoint = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
       const body = mode === 'register' ? { email, password, name } : { email, password };
 
       const res = await fetch(endpoint, {
@@ -163,7 +163,7 @@ export default function LoginPage() {
         {/* OAuth Buttons */}
         <div className="grid grid-cols-2 gap-2.5">
           <a
-            href="http://localhost:4000/api/auth/login/github"
+            href="/api/auth/login/github"
             className="py-2.5 px-3 rounded-xl bg-gray-900 border border-gray-700 hover:border-gray-500 text-white font-medium text-xs flex items-center justify-center space-x-2 transition"
           >
             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -173,7 +173,7 @@ export default function LoginPage() {
           </a>
 
           <a
-            href="http://localhost:4000/api/auth/login/bitbucket"
+            href="/api/auth/login/bitbucket"
             className="py-2.5 px-3 rounded-xl bg-blue-600/10 border border-blue-500/40 hover:border-blue-400 text-blue-300 font-medium text-xs flex items-center justify-center space-x-2 transition"
           >
             <GitBranch className="w-4 h-4 text-blue-400" />

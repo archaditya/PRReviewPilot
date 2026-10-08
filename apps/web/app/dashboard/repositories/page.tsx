@@ -68,7 +68,7 @@ export default function RepositoriesPage() {
         {/* SaaS Integration Action Buttons */}
         <div className="flex items-center space-x-3">
           <a
-            href="http://localhost:4000/api/integrations/github/install"
+            href="/api/integrations/github/install"
             className="px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-700 hover:border-gray-500 text-white text-xs font-semibold flex items-center space-x-2 transition shadow-md"
           >
             <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -78,7 +78,7 @@ export default function RepositoriesPage() {
           </a>
 
           <a
-            href="http://localhost:4000/api/auth/login/bitbucket"
+            href="/api/auth/login/bitbucket"
             className="px-4 py-2.5 rounded-xl bg-blue-600/10 border border-blue-500/40 hover:border-blue-400 text-blue-300 text-xs font-semibold flex items-center space-x-2 transition shadow-md"
           >
             <GitBranch className="w-4 h-4 text-blue-400" />

@@ -101,6 +101,8 @@ services:
       dockerfile: Dockerfile
     container_name: prreviewpilot-prod-web
     restart: unless-stopped
+    environment:
+      - INTERNAL_API_URL=http://api:4000
     ports:
       - "${WEB_PORT:-3060}:3000"
     depends_on:
