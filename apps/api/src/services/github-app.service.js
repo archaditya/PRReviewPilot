@@ -27,9 +27,20 @@ class GitHubAppService {
       }
 
       if (privateKey) {
+        // Strip any wrapping quotes (e.g. from env files)
+        privateKey = privateKey.trim();
+        if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+          privateKey = privateKey.slice(1, -1);
+        }
+
         if (!privateKey.includes('-----BEGIN') && !privateKey.includes('-----BEGIN RSA')) {
           try {
-            privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+            // Strip any whitespace/newlines inside base64 string
+            const cleanB64 = privateKey.replace(/\s+/g, '');
+            const decoded = Buffer.from(cleanB64, 'base64').toString('utf8');
+            if (decoded.includes('-----BEGIN')) {
+              privateKey = decoded;
+            }
           } catch (e) {
             // fallback if not base64
           }
@@ -50,6 +61,13 @@ class GitHubAppService {
           },
         });
         logger.info('GitHub App service initialized');
+
+        // Verify credentials with GitHub API
+        this.app.octokit.request('GET /app').then((res) => {
+          logger.info(`✓ GitHub App verified with GitHub API: ${res.data.name} (slug: ${res.data.slug})`);
+        }).catch((err) => {
+          logger.error({ err: err.message }, '✗ GitHub App authentication failed with GitHub API');
+        });
       } else {
         logger.warn('GitHub App credentials not configured; running in fallback mode');
       }

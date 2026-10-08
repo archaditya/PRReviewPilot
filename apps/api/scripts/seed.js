@@ -17,10 +17,9 @@ async function seed() {
 
     let user = await db.User.findOne({ where: { email: adminEmail } });
 
-    const salt = await bcrypt.genSalt(12);
-    const passwordHash = await bcrypt.hash(adminPassword, salt);
-
     if (!user) {
+      const salt = await bcrypt.genSalt(12);
+      const passwordHash = await bcrypt.hash(adminPassword, salt);
       user = await db.User.create({
         email: adminEmail,
         name: 'Super Admin',
@@ -31,11 +30,30 @@ async function seed() {
       });
       console.log(`✓ SuperAdmin account created successfully!`);
     } else {
-      user.passwordHash = passwordHash;
-      user.role = 'superadmin';
-      user.status = 'active';
-      await user.save();
-      console.log(`✓ SuperAdmin account credentials updated/reset!`);
+      // User already exists: Preserve existing custom password
+      let updated = false;
+      if (user.role !== 'superadmin') {
+        user.role = 'superadmin';
+        updated = true;
+      }
+      if (user.status !== 'active') {
+        user.status = 'active';
+        updated = true;
+      }
+      
+      // Only reset password if explicitly passed flag
+      if (process.argv.includes('--force-password-reset')) {
+        const salt = await bcrypt.genSalt(12);
+        user.passwordHash = await bcrypt.hash(adminPassword, salt);
+        updated = true;
+        console.log(`✓ Admin password forcefully reset to default.`);
+      } else {
+        console.log(`✓ SuperAdmin account already exists. Existing password preserved (NOT overwritten).`);
+      }
+
+      if (updated) {
+        await user.save();
+      }
     }
 
     // Ensure Default Organization
@@ -62,10 +80,10 @@ async function seed() {
     }
 
     console.log('\n=============================================');
-    console.log('  SUPERADMIN CREDENTIALS:');
+    console.log('  SUPERADMIN ACCOUNT STATUS:');
     console.log(`  Email:    ${adminEmail}`);
-    console.log(`  Password: ${adminPassword}`);
-    console.log(`  Role:     superadmin`);
+    console.log(`  Password: ${process.argv.includes('--force-password-reset') || !user ? adminPassword : '[Unchanged / Custom Password Preserved]'}`);
+    console.log(`  Role:     ${user.role || 'superadmin'}`);
     console.log('=============================================\n');
 
     process.exit(0);
