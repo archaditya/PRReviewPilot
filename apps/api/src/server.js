@@ -11,11 +11,9 @@ async function start() {
     await db.sequelize.authenticate();
     logger.info('Database connection successfully established');
 
-    // Sync database schema in development mode
-    if (config.env === 'development') {
-      await db.sequelize.sync({ alter: true });
-      logger.info('Database models synchronized with PostgreSQL schema');
-    }
+    // Sync database schema (create tables if they don't exist)
+    await db.sequelize.sync({ alter: true });
+    logger.info('Database models synchronized with PostgreSQL schema');
 
     server = app.listen(config.port, () => {
       logger.info(`PRReviewPilot API running on port ${config.port} [${config.env}]`);
