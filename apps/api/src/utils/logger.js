@@ -3,8 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 
+const { Writable } = require('stream');
+
 // Ensure log directory exists
 const logDir = path.resolve(process.env.LOG_DIR || path.join(__dirname, '../../logs'));
+
 // Format today's date for daily log file
 const getTodayLogFilePath = () => {
   const dateStr = new Date().toISOString().split('T')[0];
@@ -21,7 +24,7 @@ const cleanOldLogs = (retentionDays = 14) => {
 
     for (const file of files) {
       if (!file.startsWith('api-') || !file.endsWith('.log')) continue;
-      
+
       const fullPath = path.join(logDir, file);
       try {
         const stats = fs.statSync(fullPath);
@@ -38,38 +41,72 @@ const cleanOldLogs = (retentionDays = 14) => {
   }
 };
 
-let fileStream = null;
-try {
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+class DailyFileLogStream extends Writable {
+  constructor(dir) {
+    super();
+    this.dir = dir;
+    this.currentDate = '';
+    this.currentStream = null;
+    this.hasWarnedPermission = false;
   }
-  // Verify directory is writable before attempting to stream
-  fs.accessSync(logDir, fs.constants.W_OK);
-  
-  // Clean logs older than 14 days on startup
-  cleanOldLogs(14);
-  // Schedule daily cleanup check (24h) without keeping event loop alive
-  const cleanupTimer = setInterval(() => cleanOldLogs(14), 24 * 60 * 60 * 1000);
-  if (cleanupTimer.unref) cleanupTimer.unref();
 
-  const stream = fs.createWriteStream(getTodayLogFilePath(), { flags: 'a' });
-  stream.on('error', (err) => {
-    // Graceful fallback to stdout if file write encounters an error
-    console.warn('[Logger] Log file stream write error, falling back to console:', err.message);
-  });
-  fileStream = stream;
-} catch (e) {
-  // Directory not writable (e.g. non-root Docker user mounting root-owned host folder)
-  // Gracefully fallback to stdout
+  _getStream() {
+    const today = new Date().toISOString().split('T')[0];
+    if (this.currentStream && this.currentDate === today) {
+      return this.currentStream;
+    }
+
+    try {
+      if (!fs.existsSync(this.dir)) {
+        fs.mkdirSync(this.dir, { recursive: true });
+      }
+      fs.accessSync(this.dir, fs.constants.W_OK);
+
+      if (this.currentStream) {
+        try { this.currentStream.end(); } catch (_) {}
+      }
+
+      const filePath = path.join(this.dir, `api-${today}.log`);
+      this.currentStream = fs.createWriteStream(filePath, { flags: 'a' });
+      this.currentDate = today;
+      this.hasWarnedPermission = false;
+
+      this.currentStream.on('error', (err) => {
+        console.warn('[Logger] File write stream error:', err.message);
+        this.currentStream = null;
+      });
+
+      return this.currentStream;
+    } catch (err) {
+      if (!this.hasWarnedPermission) {
+        console.warn(`[Logger] Cannot write to log directory ${this.dir} (${err.message}). Logs will stream to stdout.`);
+        this.hasWarnedPermission = true;
+      }
+      return null;
+    }
+  }
+
+  _write(chunk, encoding, callback) {
+    const stream = this._getStream();
+    if (stream) {
+      stream.write(chunk, encoding, callback);
+    } else {
+      callback();
+    }
+  }
 }
+
+// Clean old logs on startup and schedule daily cleanup
+cleanOldLogs(14);
+const cleanupTimer = setInterval(() => cleanOldLogs(14), 24 * 60 * 60 * 1000);
+if (cleanupTimer.unref) cleanupTimer.unref();
+
+const fileStream = new DailyFileLogStream(logDir);
 
 const streams = [
   { stream: process.stdout },
+  { stream: fileStream },
 ];
-
-if (fileStream) {
-  streams.push({ stream: fileStream });
-}
 
 const logger = pino(
   {

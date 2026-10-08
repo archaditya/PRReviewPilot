@@ -58,6 +58,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - LOG_DIR=/app/logs
       - PORT=4000
       - APP_URL=${APP_URL}
       - API_URL=${API_URL}
