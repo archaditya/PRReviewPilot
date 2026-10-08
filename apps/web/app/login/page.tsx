@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GitPullRequest, GitBranch, ArrowLeft, Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { GitPullRequest, GitBranch, ArrowLeft, Mail, Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,8 +11,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const fillAdminCredentials = () => {
+    setEmail('admin@prreviewpilot.archadi.dev');
+    setPassword('Admin@123456');
+    setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +37,20 @@ export default function LoginPage() {
         credentials: 'include',
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = {};
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 502) {
+          throw new Error('502 Bad Gateway: API container is currently starting up or restarting. Wait 10 seconds and retry.');
+        }
+        throw new Error(`Server error (${res.status}): ${text.slice(0, 100)}`);
+      }
+
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Authentication failed');
+        throw new Error(data.error || data.message || 'Authentication failed');
       }
 
       router.push('/dashboard');
@@ -86,8 +104,28 @@ export default function LoginPage() {
           </button>
         </div>
 
+        {/* Default Admin Helper Card */}
+        {mode === 'login' && (
+          <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Default SuperAdmin Account</span>
+              </span>
+              <span className="text-[10px] text-gray-400 font-mono block">admin@prreviewpilot.archadi.dev</span>
+            </div>
+            <button
+              type="button"
+              onClick={fillAdminCredentials}
+              className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition flex-shrink-0 shadow-sm"
+            >
+              Fill Credentials
+            </button>
+          </div>
+        )}
+
         {error && (
-          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs leading-relaxed">
             {error}
           </div>
         )}
@@ -141,20 +179,28 @@ export default function LoginPage() {
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-2.5" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                className="w-full pl-9 pr-10 py-2 rounded-lg bg-gray-900 border border-gray-700 text-white text-xs focus:outline-none focus:border-indigo-500"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300 transition"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition shadow-md shadow-indigo-600/30 flex items-center justify-center space-x-1.5"
+            className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition shadow-md shadow-indigo-600/30 flex items-center justify-center space-x-1.5 disabled:opacity-50"
           >
             <span>{loading ? 'Processing...' : mode === 'login' ? 'Sign In' : 'Create Workspace'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
