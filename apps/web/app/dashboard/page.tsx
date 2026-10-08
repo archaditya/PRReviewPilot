@@ -1,14 +1,93 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { GitFork, ListChecks, ShieldAlert, CheckCircle2, ArrowRight, GitBranch } from 'lucide-react';
+import { GitFork, ListChecks, ShieldAlert, CheckCircle2, ArrowRight, GitBranch, Plus, Sparkles } from 'lucide-react';
+
+interface Repo {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
+}
+
+interface Review {
+  id: string;
+  status: string;
+  findingsCount?: number;
+  repository?: {
+    name: string;
+    provider: string;
+  };
+  pullRequest?: {
+    title: string;
+    author: string;
+  };
+  createdAt: string;
+}
 
 export default function DashboardOverviewPage() {
+  const [repos, setRepos] = useState<Repo[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [reposRes, reviewsRes] = await Promise.all([
+          fetch('/api/repos', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
+          fetch('/api/reviews', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
+        ]);
+
+        if (reposRes?.success && Array.isArray(reposRes.repositories)) {
+          setRepos(reposRes.repositories);
+        }
+        if (reviewsRes?.success && Array.isArray(reviewsRes.reviews)) {
+          setReviews(reviewsRes.reviews);
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const totalRepos = repos.length;
+  const totalReviews = reviews.length;
+  const completedReviews = reviews.filter((r) => r.status === 'completed').length;
+
   const stats = [
-    { label: 'Connected Repositories', value: '4', change: '+2 this week', icon: GitFork, color: 'text-indigo-400' },
-    { label: 'PR Reviews Processed', value: '38', change: '100% automated', icon: ListChecks, color: 'text-purple-400' },
-    { label: 'Critical Risks Detected', value: '12', change: 'Prevented in CI', icon: ShieldAlert, color: 'text-rose-400' },
-    { label: 'Average Review Time', value: '14s', change: 'Instant feedback', icon: CheckCircle2, color: 'text-emerald-400' },
+    {
+      label: 'Connected Repositories',
+      value: loading ? '...' : totalRepos.toString(),
+      change: totalRepos === 0 ? 'No repos connected' : 'Active monitoring',
+      icon: GitFork,
+      color: 'text-indigo-400',
+    },
+    {
+      label: 'PR Reviews Processed',
+      value: loading ? '...' : totalReviews.toString(),
+      change: totalReviews === 0 ? 'Awaiting first PR' : `${completedReviews} completed`,
+      icon: ListChecks,
+      color: 'text-purple-400',
+    },
+    {
+      label: 'Critical Risks Detected',
+      value: loading ? '...' : '0',
+      change: 'Active in CI/CD',
+      icon: ShieldAlert,
+      color: 'text-rose-400',
+    },
+    {
+      label: 'Average Review Time',
+      value: loading ? '...' : totalReviews > 0 ? '14s' : '--',
+      change: 'Real-time AI analysis',
+      icon: CheckCircle2,
+      color: 'text-emerald-400',
+    },
   ];
 
   return (
@@ -17,14 +96,14 @@ export default function DashboardOverviewPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-          <p className="text-sm text-gray-400 mt-1">Real-time health of your GitHub and Bitbucket pull request reviews.</p>
+          <p className="text-sm text-gray-400 mt-1">Real-time health of your connected repositories and automated AI pull request reviews.</p>
         </div>
         <div className="flex items-center space-x-3">
           <Link
             href="/dashboard/repositories"
             className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition shadow-md shadow-indigo-600/30 flex items-center space-x-2"
           >
-            <GitFork className="w-4 h-4" />
+            <Plus className="w-4 h-4" />
             <span>Connect Repository</span>
           </Link>
         </div>
@@ -59,59 +138,59 @@ export default function DashboardOverviewPage() {
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-900/40 text-gray-400 text-xs uppercase border-b border-gray-800">
-              <tr>
-                <th className="px-6 py-3">Repository</th>
-                <th className="px-6 py-3">Pull Request</th>
-                <th className="px-6 py-3">Provider</th>
-                <th className="px-6 py-3">Risk Level</th>
-                <th className="px-6 py-3">Findings</th>
-                <th className="px-6 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800 text-gray-300">
-              <tr className="hover:bg-gray-800/30 transition">
-                <td className="px-6 py-4 font-medium text-white">auth-service</td>
-                <td className="px-6 py-4">PR #42: Add OAuth refresh token rotation</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-300">
-                    <span>GitHub</span>
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-0.5 rounded text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium">
-                    Critical Risk
-                  </span>
-                </td>
-                <td className="px-6 py-4">3 issues</td>
-                <td className="px-6 py-4">
-                  <span className="text-emerald-400 text-xs font-medium">Completed</span>
-                </td>
-              </tr>
-              <tr className="hover:bg-gray-800/30 transition">
-                <td className="px-6 py-4 font-medium text-white">billing-gateway</td>
-                <td className="px-6 py-4">PR #15: Update webhook signature verification</td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-xs bg-blue-500/10 text-blue-300">
-                    <GitBranch className="w-3 h-3 mr-1" />
-                    <span>Bitbucket</span>
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                    Low Risk
-                  </span>
-                </td>
-                <td className="px-6 py-4">0 issues</td>
-                <td className="px-6 py-4">
-                  <span className="text-emerald-400 text-xs font-medium">Completed</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div className="p-8 text-center text-sm text-gray-400">Loading reviews...</div>
+        ) : reviews.length === 0 ? (
+          <div className="p-12 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="max-w-md mx-auto">
+              <h3 className="text-base font-semibold text-white">No Pull Requests Reviewed Yet</h3>
+              <p className="mt-1 text-xs text-gray-400">
+                Connect your GitHub or Bitbucket repository and open a pull request. PRReviewPilot will automatically analyze changes and post inline security reviews.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/repositories"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition"
+            >
+              <GitFork className="w-3.5 h-3.5" />
+              <span>Connect First Repository</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-900/40 text-gray-400 text-xs uppercase border-b border-gray-800">
+                <tr>
+                  <th className="px-6 py-3">Repository</th>
+                  <th className="px-6 py-3">Pull Request</th>
+                  <th className="px-6 py-3">Provider</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 text-gray-300">
+                {reviews.slice(0, 5).map((rev) => (
+                  <tr key={rev.id} className="hover:bg-gray-800/30 transition">
+                    <td className="px-6 py-4 font-medium text-white">{rev.repository?.name || 'repo'}</td>
+                    <td className="px-6 py-4">{rev.pullRequest?.title || 'Pull Request'}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-300 uppercase">
+                        {rev.repository?.provider || 'git'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-emerald-400 text-xs font-medium capitalize">{rev.status}</span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500">{new Date(rev.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

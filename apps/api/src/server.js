@@ -15,6 +15,20 @@ async function start() {
     await db.sequelize.sync({ alter: true });
     logger.info('Database models synchronized with PostgreSQL schema');
 
+    // Auto-seed default SuperAdmin if database is empty
+    const userCount = await db.User.count();
+    if (userCount === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@prreviewpilot.archadi.dev';
+      const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123456';
+      const authService = require('./services/auth.service');
+      await authService.registerWithEmail({
+        email: adminEmail,
+        password: adminPassword,
+        name: 'Super Admin',
+      });
+      logger.info(`[SEED] Default SuperAdmin account ready: ${adminEmail} / ${adminPassword}`);
+    }
+
     server = app.listen(config.port, () => {
       logger.info(`PRReviewPilot API running on port ${config.port} [${config.env}]`);
     });

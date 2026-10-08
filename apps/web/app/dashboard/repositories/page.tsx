@@ -1,57 +1,81 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GitFork, GitBranch, Plus, ExternalLink, Settings2, CheckCircle2, Shield, RefreshCw } from 'lucide-react';
 
-export default function RepositoriesPage() {
-  const [repos, setRepos] = useState([
-    {
-      id: '1',
-      name: 'core-api',
-      fullName: 'acme-corp/core-api',
-      provider: 'github',
-      defaultBranch: 'main',
-      status: 'active',
-      strictness: 'balanced',
-      lastReviewed: '15 mins ago',
-      installationAccount: 'acme-corp (GitHub Org)',
-    },
-    {
-      id: '2',
-      name: 'payments-service',
-      fullName: 'acme-corp/payments-service',
-      provider: 'github',
-      defaultBranch: 'main',
-      status: 'active',
-      strictness: 'strict',
-      lastReviewed: '3 hours ago',
-      installationAccount: 'acme-corp (GitHub Org)',
-    },
-    {
-      id: '3',
-      name: 'mobile-app',
-      fullName: 'acme-mobile/ios-android',
-      provider: 'bitbucket',
-      defaultBranch: 'master',
-      status: 'active',
-      strictness: 'lenient',
-      lastReviewed: '1 day ago',
-      installationAccount: 'acme-workspace (Bitbucket)',
-    },
-  ]);
+interface Repo {
+  id: string;
+  name: string;
+  provider: 'github' | 'bitbucket';
+  providerFullName: string;
+  defaultBranch: string;
+  isActive: boolean;
+  reviewPolicy?: {
+    strictness?: string;
+  };
+}
 
-  const toggleRepoStatus = (id: string) => {
-    setRepos((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: r.status === 'active' ? 'paused' : 'active' } : r
-      )
-    );
+export default function RepositoriesPage() {
+  const [repos, setRepos] = useState<Repo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRepos = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/repositories', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.repositories)) {
+          setRepos(data.repositories);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load repositories:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateStrictness = (id: string, strictness: string) => {
-    setRepos((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, strictness } : r))
-    );
+  useEffect(() => {
+    fetchRepos();
+  }, []);
+
+  const toggleRepoStatus = async (id: string, currentActive: boolean) => {
+    try {
+      const res = await fetch(`/api/repositories/${id}/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentActive }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setRepos((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, isActive: !currentActive } : r))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to toggle repo status:', e);
+    }
+  };
+
+  const updateStrictness = async (id: string, strictness: string) => {
+    try {
+      const res = await fetch(`/api/repositories/${id}/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewPolicy: { strictness } }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setRepos((prev) =>
+          prev.map((r) =>
+            r.id === id ? { ...r, reviewPolicy: { ...r.reviewPolicy, strictness } } : r
+          )
+        );
+      }
+    } catch (e) {
+      console.error('Failed to update strictness:', e);
+    }
   };
 
   return (
@@ -65,7 +89,7 @@ export default function RepositoriesPage() {
           </p>
         </div>
 
-        {/* SaaS Integration Action Buttons */}
+        {/* Integration Action Buttons */}
         <div className="flex items-center space-x-3">
           <a
             href="/api/integrations/github/install"
@@ -87,69 +111,100 @@ export default function RepositoriesPage() {
         </div>
       </div>
 
-      {/* Auto-Discovered Repositories List */}
+      {/* Repositories List */}
       <div className="glass-panel rounded-2xl border border-gray-800 overflow-hidden">
         <div className="p-5 border-b border-gray-800/80 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <h2 className="font-semibold text-white text-sm">Installed Repositories ({repos.length})</h2>
             <span className="text-[11px] text-gray-400">• Zero-config webhook sync enabled</span>
           </div>
-          <button className="text-xs text-indigo-400 hover:text-white flex items-center space-x-1">
+          <button
+            onClick={fetchRepos}
+            className="text-xs text-indigo-400 hover:text-white flex items-center space-x-1"
+          >
             <RefreshCw className="w-3.5 h-3.5 mr-1" />
             <span>Sync Installations</span>
           </button>
         </div>
 
-        <div className="divide-y divide-gray-800 text-sm">
-          {repos.map((repo) => (
-            <div key={repo.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-800/20 transition">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-white text-base">{repo.fullName}</span>
-                  {repo.provider === 'github' ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-800 text-gray-300">GitHub App</span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">Bitbucket</span>
-                  )}
-                  <span className="text-xs text-gray-500">({repo.installationAccount})</span>
-                </div>
-                <div className="text-xs text-gray-400 flex items-center space-x-4">
-                  <span>Default branch: <code className="text-indigo-300">{repo.defaultBranch}</code></span>
-                  <span>Last PR review: {repo.lastReviewed}</span>
-                </div>
-              </div>
-
-              {/* Controls */}
-              <div className="flex items-center space-x-4">
-                {/* Strictness Policy Selector */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-400 font-medium">Policy:</span>
-                  <select
-                    value={repo.strictness}
-                    onChange={(e) => updateStrictness(repo.id, e.target.value)}
-                    className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-700 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="lenient">Lenient (Critical Only)</option>
-                    <option value="balanced">Balanced (Recommended)</option>
-                    <option value="strict">Strict (High Scrutiny)</option>
-                  </select>
-                </div>
-
-                {/* Status Toggle Switch */}
-                <button
-                  onClick={() => toggleRepoStatus(repo.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
-                    repo.status === 'active'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-gray-800 text-gray-400 border-gray-700'
-                  }`}
-                >
-                  {repo.status === 'active' ? '● Reviewing Active' : '○ Paused'}
-                </button>
-              </div>
+        {loading ? (
+          <div className="p-12 text-center text-sm text-gray-400">Loading installed repositories...</div>
+        ) : repos.length === 0 ? (
+          <div className="p-12 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
+              <GitFork className="w-6 h-6" />
             </div>
-          ))}
-        </div>
+            <div className="max-w-md mx-auto">
+              <h3 className="text-base font-semibold text-white">No Repositories Connected</h3>
+              <p className="mt-1 text-xs text-gray-400">
+                Install the PRReviewPilot GitHub App or link your Bitbucket account to grant access to repositories you want automated reviews on.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <a
+                href="/api/integrations/github/install"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition"
+              >
+                Install on GitHub
+              </a>
+              <a
+                href="/api/auth/login/bitbucket"
+                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition"
+              >
+                Connect Bitbucket
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-800 text-sm">
+            {repos.map((repo) => (
+              <div key={repo.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-800/20 transition">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-white text-base">{repo.providerFullName || repo.name}</span>
+                    {repo.provider === 'github' ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-800 text-gray-300">GitHub App</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">Bitbucket</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400 flex items-center space-x-4">
+                    <span>Default branch: <code className="text-indigo-300">{repo.defaultBranch || 'main'}</code></span>
+                  </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center space-x-4">
+                  {/* Strictness Policy Selector */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-400 font-medium">Policy:</span>
+                    <select
+                      value={repo.reviewPolicy?.strictness || 'balanced'}
+                      onChange={(e) => updateStrictness(repo.id, e.target.value)}
+                      className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="lenient">Lenient (Critical Only)</option>
+                      <option value="balanced">Balanced (Recommended)</option>
+                      <option value="strict">Strict (High Scrutiny)</option>
+                    </select>
+                  </div>
+
+                  {/* Status Toggle Switch */}
+                  <button
+                    onClick={() => toggleRepoStatus(repo.id, repo.isActive)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                      repo.isActive !== false
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-gray-800 text-gray-400 border-gray-700'
+                    }`}
+                  >
+                    {repo.isActive !== false ? '● Reviewing Active' : '○ Paused'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
