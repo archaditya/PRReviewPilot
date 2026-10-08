@@ -40,7 +40,40 @@ async function authenticate(req, res, next) {
     req.organizationId = decoded.organizationId;
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
+    if (err.name === 'TokenExpiredError' && req.cookies && req.cookies.reviewpilot_refresh_token) {
+      try {
+        const rotated = await sessionService.rotateSession(req.cookies.reviewpilot_refresh_token, {
+          userAgent: req.headers['user-agent'] || 'unknown',
+          ip: req.ip || req.connection?.remoteAddress,
+        });
+
+        const isProd = config.env === 'production';
+        res.cookie('reviewpilot_access_token', rotated.accessToken, {
+          httpOnly: true,
+          secure: isProd,
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+        res.cookie('reviewpilot_refresh_token', rotated.refreshToken, {
+          httpOnly: true,
+          secure: isProd,
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
+
+        const decoded = jwt.verify(rotated.accessToken, config.jwt.secret);
+        const user = await db.User.findByPk(decoded.userId);
+        if (user && user.status === 'active') {
+          req.user = user;
+          req.sessionId = decoded.sessionId;
+          req.organizationId = decoded.organizationId;
+          return next();
+        }
+      } catch (rotateErr) {
+        // Continue to expired token response
+      }
       return res.status(401).json({ success: false, error: 'Access token expired. Please refresh session.', code: 'TOKEN_EXPIRED' });
     }
     return res.status(401).json({ success: false, error: 'Invalid authentication session.' });

@@ -7,28 +7,30 @@ class AuthController {
   setSessionCookies(res, accessToken, refreshToken) {
     const isProd = config.env === 'production';
     
-    // Access token (15 mins)
+    // Access token (7 days persistent session)
     res.cookie('reviewpilot_access_token', accessToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Refresh token (7 days)
+    // Refresh token (30 days persistent refresh)
     res.cookie('reviewpilot_refresh_token', refreshToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
-      path: '/api/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    // Legacy compatibility cookie
+    // Compatibility cookie
     res.cookie('reviewpilot_token', accessToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
