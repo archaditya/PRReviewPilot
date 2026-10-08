@@ -18,6 +18,17 @@ class GitHubAppService {
         privateKey = fs.readFileSync(config.github.privateKeyPath, 'utf8');
       }
 
+      if (privateKey) {
+        if (!privateKey.includes('-----BEGIN') && !privateKey.includes('-----BEGIN RSA')) {
+          try {
+            privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+          } catch (e) {
+            // fallback if not base64
+          }
+        }
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+
       if (config.github.appId && privateKey) {
         this.app = new App({
           appId: config.github.appId,
