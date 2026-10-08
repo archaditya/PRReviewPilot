@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GitPullRequest, GitBranch, ArrowLeft, Mail, Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { GitPullRequest, GitBranch, ArrowLeft, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,12 +14,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const fillAdminCredentials = () => {
-    setEmail('admin@prreviewpilot.archadi.dev');
-    setPassword('Admin@123456');
-    setError('');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,26 +97,6 @@ export default function LoginPage() {
             Create Account
           </button>
         </div>
-
-        {/* Default Admin Helper Card */}
-        {mode === 'login' && (
-          <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs flex items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-semibold text-indigo-300 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Default SuperAdmin Account</span>
-              </span>
-              <span className="text-[10px] text-gray-400 font-mono block">admin@prreviewpilot.archadi.dev</span>
-            </div>
-            <button
-              type="button"
-              onClick={fillAdminCredentials}
-              className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition flex-shrink-0 shadow-sm"
-            >
-              Fill Credentials
-            </button>
-          </div>
-        )}
 
         {error && (
           <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs leading-relaxed">

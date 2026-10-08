@@ -69,68 +69,158 @@ class GitHubAppService {
   }
 
   /**
-   * Handle installation.created webhook: links GitHub installation to organization
+   * Sync a specific installation by ID: fetches metadata and all granted repositories
    */
-  async handleInstallationCreated(payload) {
-    const { installation, sender } = payload;
-    const providerInstallationId = String(installation.id);
-    const accountLogin = installation.account.login;
-    const accountType = installation.account.type;
+  async syncInstallation(installationId, userId = null) {
+    if (!this.app && this.initPromise) {
+      await this.initPromise;
+    }
+    if (!this.app) {
+      throw new Error('GitHub App is not configured on this server');
+    }
 
-    logger.info({ providerInstallationId, accountLogin }, 'GitHub App installed');
+    const octokit = await this.getInstallationOctokit(installationId);
 
-    // Find the user who installed the app or the matching organization
-    let user = await db.User.findOne({
-      where: { githubUsername: sender.login },
+    // 1. Fetch installation details
+    const { data: instData } = await octokit.request('GET /app/installations/{installation_id}', {
+      installation_id: parseInt(installationId, 10),
     });
 
+    const accountLogin = instData.account?.login || 'github-account';
+    const accountType = instData.account?.type || 'User';
+    const providerInstallationId = String(instData.id);
+
+    // 2. Locate or create organization
     let org = null;
-    if (user) {
+    if (userId) {
       const membership = await db.OrganizationMember.findOne({
-        where: { userId: user.id, role: ['owner', 'admin'] },
+        where: { userId },
         include: [{ model: db.Organization, as: 'organization' }],
       });
       if (membership) org = membership.organization;
     }
 
     if (!org) {
-      // Find or create an organization for this GitHub entity
       org = await db.Organization.findOne({ where: { slug: accountLogin.toLowerCase() } });
-      if (!org && user) {
-        org = await db.Organization.create({
-          name: accountLogin,
-          slug: accountLogin.toLowerCase(),
-          ownerUserId: user.id,
-        });
-        await db.OrganizationMember.create({
-          organizationId: org.id,
-          userId: user.id,
-          role: 'owner',
-          status: 'active',
-        });
-      }
+    }
+    if (!org) {
+      // Find first organization in DB (e.g. Admin Workspace)
+      org = await db.Organization.findOne({ order: [['createdAt', 'ASC']] });
+    }
+    if (!org) {
+      org = await db.Organization.create({
+        name: accountLogin,
+        slug: accountLogin.toLowerCase(),
+      });
     }
 
-    if (org) {
-      const [instRecord] = await db.Installation.findOrCreate({
+    // 3. Upsert Installation record
+    const [instRecord] = await db.Installation.findOrCreate({
+      where: {
+        provider: 'github',
+        providerInstallationId,
+      },
+      defaults: {
+        organizationId: org.id,
+        provider: 'github',
+        providerInstallationId,
+        accountLogin,
+        accountType,
+        permissions: instData.permissions || {},
+        installedByUserId: userId,
+        status: 'active',
+      },
+    });
+
+    if (instRecord.status !== 'active' || instRecord.organizationId !== org.id) {
+      instRecord.status = 'active';
+      instRecord.organizationId = org.id;
+      await instRecord.save();
+    }
+
+    // 4. Fetch all repositories accessible to this installation
+    const { data: repoList } = await octokit.request('GET /installation/repositories');
+    const repos = repoList.repositories || [];
+    const synced = [];
+
+    for (const r of repos) {
+      const [repo] = await db.Repository.findOrCreate({
         where: {
+          organizationId: org.id,
           provider: 'github',
-          providerInstallationId,
+          providerRepoId: String(r.id),
         },
         defaults: {
           organizationId: org.id,
+          installationId: instRecord.id,
           provider: 'github',
-          providerInstallationId,
-          accountLogin,
-          accountType,
-          permissions: installation.permissions || {},
-          installedByUserId: user ? user.id : null,
+          providerRepoId: String(r.id),
+          providerFullName: r.full_name,
+          name: r.name,
+          defaultBranch: r.default_branch || 'main',
+          language: r.language,
+          isPrivate: r.private,
+          cloneUrl: r.clone_url,
+          htmlUrl: r.html_url,
+          description: r.description,
           status: 'active',
         },
       });
 
-      return instRecord;
+      if (repo.status !== 'active' || repo.providerFullName !== r.full_name) {
+        repo.status = 'active';
+        repo.providerFullName = r.full_name;
+        repo.defaultBranch = r.default_branch || 'main';
+        await repo.save();
+      }
+      synced.push(repo);
     }
+
+    logger.info({ installationId, accountLogin, count: synced.length }, 'Synced GitHub App installation and repositories');
+    return { installation: instRecord, repositories: synced, count: synced.length };
+  }
+
+  /**
+   * Sync all installations registered to this GitHub App
+   */
+  async syncAllInstallations(userId = null) {
+    if (!this.app && this.initPromise) {
+      await this.initPromise;
+    }
+    if (!this.app) {
+      throw new Error('GitHub App is not configured on this server');
+    }
+
+    const { data: installations } = await this.app.octokit.request('GET /app/installations');
+    const allRepos = [];
+
+    for (const inst of installations) {
+      try {
+        const res = await this.syncInstallation(inst.id, userId);
+        allRepos.push(...res.repositories);
+      } catch (err) {
+        logger.error({ err: err.message, installationId: inst.id }, 'Failed to sync installation');
+      }
+    }
+
+    return allRepos;
+  }
+
+  /**
+   * Handle installation.created webhook: links GitHub installation and syncs all repos
+   */
+  async handleInstallationCreated(payload) {
+    const { installation, sender } = payload;
+    const providerInstallationId = String(installation.id);
+    const accountLogin = installation.account.login;
+
+    logger.info({ providerInstallationId, accountLogin }, 'GitHub App installed webhook received');
+
+    let user = await db.User.findOne({
+      where: { githubUsername: sender.login },
+    });
+
+    return await this.syncInstallation(installation.id, user ? user.id : null);
   }
 
   /**
@@ -140,13 +230,13 @@ class GitHubAppService {
     const { installation, repositories_added } = payload;
     const providerInstallationId = String(installation.id);
 
-    const instRecord = await db.Installation.findOne({
+    let instRecord = await db.Installation.findOne({
       where: { provider: 'github', providerInstallationId },
     });
 
     if (!instRecord) {
-      logger.warn({ providerInstallationId }, 'Installation not found for added repositories');
-      return;
+      logger.info({ providerInstallationId }, 'Installation not cached, running full sync');
+      return await this.syncInstallation(installation.id);
     }
 
     const orgId = instRecord.organizationId;
@@ -159,7 +249,7 @@ class GitHubAppService {
           repo: repoMeta.name,
         });
 
-        await db.Repository.findOrCreate({
+        const [repo] = await db.Repository.findOrCreate({
           where: {
             organizationId: orgId,
             provider: 'github',
@@ -181,6 +271,11 @@ class GitHubAppService {
             status: 'active',
           },
         });
+
+        if (repo.status !== 'active') {
+          repo.status = 'active';
+          await repo.save();
+        }
         logger.info({ repo: repoDetails.full_name }, 'Auto-imported repository via GitHub App');
       } catch (err) {
         logger.error({ err: err.message, repo: repoMeta.full_name }, 'Failed to auto-import repo');

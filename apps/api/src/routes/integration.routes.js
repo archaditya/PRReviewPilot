@@ -4,15 +4,51 @@ const db = require('../models');
 const { getProvider } = require('../integrations/providers');
 const { authenticate, requireOrgAccess } = require('../middlewares/auth.middleware');
 const logger = require('../utils/logger');
+const githubAppService = require('../services/github-app.service');
 
 const router = express.Router();
 
 // GET /api/integrations/github/install?orgId=...
 router.get('/github/install', authenticate, async (req, res) => {
   const orgId = req.query.orgId || req.organizationId;
-  const appSlug = process.env.GITHUB_APP_SLUG || 'reviewpilot-bot';
+  const appSlug = process.env.GITHUB_APP_SLUG || 'prreviewpilot-saas';
   const installUrl = `https://github.com/apps/${appSlug}/installations/new?state=${orgId || ''}`;
   res.redirect(installUrl);
+});
+
+// GET /api/integrations/github/setup
+// GitHub redirects here after a user installs or updates the GitHub App
+router.get('/github/setup', async (req, res) => {
+  try {
+    const { installation_id, setup_action } = req.query;
+    logger.info({ installation_id, setup_action }, 'GitHub App setup redirect received');
+
+    if (installation_id) {
+      await githubAppService.syncInstallation(installation_id);
+    }
+    return res.redirect(`${config.appUrl}/dashboard/repositories?installed=true`);
+  } catch (err) {
+    logger.error({ err: err.message }, 'Failed to handle GitHub App setup redirect');
+    return res.redirect(`${config.appUrl}/dashboard/repositories?error=setup_failed`);
+  }
+});
+
+// POST /api/integrations/github/sync
+// Manually triggers sync of all installations and repositories from GitHub App
+router.post('/github/sync', authenticate, async (req, res) => {
+  try {
+    logger.info({ userId: req.user?.id }, 'Manual GitHub App repositories sync requested');
+    const synced = await githubAppService.syncAllInstallations(req.user?.id);
+    return res.json({
+      success: true,
+      message: `Successfully synced ${synced.length} repositories from GitHub.`,
+      count: synced.length,
+      repositories: synced,
+    });
+  } catch (err) {
+    logger.error({ err: err.message }, 'Manual GitHub sync failed');
+    return res.status(500).json({ success: false, error: err.message || 'Failed to sync GitHub repositories' });
+  }
 });
 
 // POST /api/integrations/bitbucket/sync-workspace

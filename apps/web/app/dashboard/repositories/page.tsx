@@ -18,6 +18,8 @@ interface Repo {
 export default function RepositoriesPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchRepos = async () => {
     try {
@@ -36,8 +38,47 @@ export default function RepositoriesPage() {
     }
   };
 
+  const handleSyncInstallations = async () => {
+    try {
+      setSyncing(true);
+      setSyncNotice(null);
+      const res = await fetch('/api/integrations/github/sync', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSyncNotice({
+          type: 'success',
+          message: data.message || `Successfully synced ${data.count || 0} repositories from GitHub!`,
+        });
+        await fetchRepos();
+      } else {
+        setSyncNotice({
+          type: 'error',
+          message: data.error || 'Failed to sync repositories from GitHub App.',
+        });
+      }
+    } catch (err: any) {
+      setSyncNotice({
+        type: 'error',
+        message: err.message || 'Network error while syncing repositories.',
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   useEffect(() => {
     fetchRepos();
+
+    // Check if redirected from GitHub App setup
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('installed') === 'true') {
+        handleSyncInstallations();
+      }
+    }
   }, []);
 
   const toggleRepoStatus = async (id: string, currentActive: boolean) => {
@@ -114,6 +155,32 @@ export default function RepositoriesPage() {
         </div>
       </div>
 
+      {/* Sync Status Banner */}
+      {syncNotice && (
+        <div
+          className={`p-4 rounded-xl text-xs flex items-center justify-between border ${
+            syncNotice.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            {syncNotice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            ) : (
+              <Shield className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            )}
+            <span>{syncNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setSyncNotice(null)}
+            className="text-gray-400 hover:text-white text-xs ml-4 font-mono"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Repositories List */}
       <div className="glass-panel rounded-2xl border border-gray-800 overflow-hidden">
         <div className="p-5 border-b border-gray-800/80 flex items-center justify-between">
@@ -122,11 +189,14 @@ export default function RepositoriesPage() {
             <span className="text-[11px] text-gray-400">• Zero-config webhook sync enabled</span>
           </div>
           <button
-            onClick={fetchRepos}
-            className="text-xs text-indigo-400 hover:text-white flex items-center space-x-1"
+            onClick={handleSyncInstallations}
+            disabled={syncing}
+            className={`text-xs px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 flex items-center space-x-1.5 transition ${
+              syncing ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
           >
-            <RefreshCw className="w-3.5 h-3.5 mr-1" />
-            <span>Sync Installations</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <span>{syncing ? 'Syncing Repos...' : 'Sync Installations'}</span>
           </button>
         </div>
 
@@ -144,11 +214,19 @@ export default function RepositoriesPage() {
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={handleSyncInstallations}
+                disabled={syncing}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition flex items-center space-x-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                <span>{syncing ? 'Syncing...' : 'Sync Now from GitHub'}</span>
+              </button>
               <a
                 href="/api/integrations/github/install"
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition"
+                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition"
               >
-                Install on GitHub
+                + Add / Manage on GitHub
               </a>
               <a
                 href="/api/auth/login/bitbucket"
