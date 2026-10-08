@@ -48,12 +48,16 @@ class AuthService {
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    const count = await db.User.count();
+    const isAdmin = count === 0 || (process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
+    const role = isAdmin ? 'superadmin' : 'user';
+
     const user = await db.User.create({
       email,
       name,
       passwordHash,
       emailVerified: false,
-      role: 'user',
+      role,
       status: 'active',
     });
 
@@ -116,6 +120,10 @@ class AuthService {
         if (!user.avatarUrl) user.avatarUrl = profile.avatarUrl;
         await user.save();
       } else {
+        const count = await db.User.count();
+        const isAdmin = count === 0 || (process.env.ADMIN_EMAIL && profile.email && profile.email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
+        const role = isAdmin ? 'superadmin' : 'user';
+
         user = await db.User.create({
           email: profile.email,
           name: profile.name,
@@ -124,6 +132,7 @@ class AuthService {
           githubUserId: profile.id,
           githubUsername: profile.username,
           githubAccessToken: accessToken,
+          role,
         });
       }
     } else {
@@ -165,6 +174,10 @@ class AuthService {
         if (!user.avatarUrl) user.avatarUrl = profile.avatarUrl;
         await user.save();
       } else {
+        const count = await db.User.count();
+        const isAdmin = count === 0 || (process.env.ADMIN_EMAIL && profile.email && profile.email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase());
+        const role = isAdmin ? 'superadmin' : 'user';
+
         user = await db.User.create({
           email: profile.email,
           name: profile.name,
@@ -174,6 +187,7 @@ class AuthService {
           bitbucketUsername: profile.username,
           bitbucketAccessToken: accessToken,
           bitbucketRefreshToken: refreshToken,
+          role,
         });
       }
     } else {

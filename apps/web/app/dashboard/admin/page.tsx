@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   Users,
@@ -33,76 +33,116 @@ export default function AdminMonitoringPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [newQuota, setNewQuota] = useState(50);
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({
+    totalUsers: 0,
+    totalRepos: 0,
+    totalReviews: 0,
+    totalTokens: 0,
+    totalCostUsd: 0,
+  });
 
-  const [users, setUsers] = useState<AdminUser[]>([
-    {
-      id: 'usr-1',
-      name: 'Aditya (Admin)',
-      email: 'aditya@example.com',
-      provider: 'github',
-      role: 'superadmin',
-      status: 'active',
-      reviewsCount: 38,
-      maxReviews: 500,
-      tokensUsed: 620400,
-      costUsd: 0.124,
-    },
-    {
-      id: 'usr-2',
-      name: 'External Dev Sam',
-      email: 'sam.developer@clientcorp.com',
-      provider: 'bitbucket',
-      role: 'user',
-      status: 'active',
-      reviewsCount: 47,
-      maxReviews: 50,
-      tokensUsed: 890200,
-      costUsd: 0.178,
-    },
-    {
-      id: 'usr-3',
-      name: 'High-Volume Team Lead',
-      email: 'teamlead@startup.io',
-      provider: 'github',
-      role: 'user',
-      status: 'suspended',
-      reviewsCount: 102,
-      maxReviews: 100,
-      tokensUsed: 1940000,
-      costUsd: 0.388,
-    },
-  ]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
 
-  const totalTokens = users.reduce((acc, u) => acc + u.tokensUsed, 0);
-  const totalCost = users.reduce((acc, u) => acc + u.costUsd, 0);
-  const totalReviews = users.reduce((acc, u) => acc + u.reviewsCount, 0);
+  const fetchAdminData = async () => {
+    try {
+      setLoading(true);
+      const [statsRes, usersRes] = await Promise.all([
+        fetch('/api/admin/stats', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+        fetch('/api/admin/users', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+      ]);
 
-  const handleToggleStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === id) {
-          const nextStatus = u.status === 'active' ? 'suspended' : 'active';
-          return { ...u, status: nextStatus };
-        }
-        return u;
-      })
-    );
-  };
+      if (statsRes?.success && statsRes.stats) {
+        setStatsData(statsRes.stats);
+      }
 
-  const handleResetUsage = (id: string) => {
-    if (confirm('Reset usage counter and tokens for this user?')) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, reviewsCount: 0, tokensUsed: 0, costUsd: 0 } : u))
-      );
+      if (usersRes?.success && Array.isArray(usersRes.users)) {
+        const mappedUsers: AdminUser[] = usersRes.users.map((u: any) => ({
+          id: u.id,
+          name: u.name || (u.email ? u.email.split('@')[0] : 'User'),
+          email: u.email,
+          provider: u.bitbucketUsername ? 'bitbucket' : 'github',
+          role: u.role || 'user',
+          status: u.status || 'active',
+          reviewsCount: u.usage?.review_count || 0,
+          maxReviews: u.ownedOrganizations?.[0]?.features?.max_reviews_per_month || 100,
+          tokensUsed: u.usage?.total_tokens || 0,
+          costUsd: Number((((u.usage?.total_tokens || 0) / 1000) * 0.0002).toFixed(4)),
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (e) {
+      console.error('Failed to load admin stats:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSaveQuota = () => {
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
+
+  const totalTokens = statsData.totalTokens || users.reduce((acc, u) => acc + u.tokensUsed, 0);
+  const totalCost = statsData.totalCostUsd || users.reduce((acc, u) => acc + u.costUsd, 0);
+  const totalReviews = statsData.totalReviews || users.reduce((acc, u) => acc + u.reviewsCount, 0);
+
+  const handleToggleStatus = async (id: string) => {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    const nextStatus = user.status === 'active' ? 'suspended' : 'active';
+    try {
+      const res = await fetch(`/api/admin/users/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, status: nextStatus } : u))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to update status:', e);
+    }
+  };
+
+  const handleResetUsage = async (id: string) => {
+    if (!confirm('Reset usage counter and tokens for this user?')) return;
+    try {
+      const res = await fetch(`/api/admin/users/${id}/reset-usage`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, reviewsCount: 0, tokensUsed: 0, costUsd: 0 } : u))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to reset usage:', e);
+    }
+  };
+
+  const handleSaveQuota = async () => {
     if (!selectedUser) return;
-    setUsers((prev) =>
-      prev.map((u) => (u.id === selectedUser.id ? { ...u, maxReviews: newQuota } : u))
-    );
-    setSelectedUser(null);
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUser.id}/quota`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maxReviewsPerMonth: newQuota }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === selectedUser.id ? { ...u, maxReviews: newQuota } : u))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to save quota:', e);
+    } finally {
+      setSelectedUser(null);
+    }
   };
 
   const filteredUsers = users.filter(
@@ -210,7 +250,20 @@ export default function AdminMonitoringPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800 text-gray-300">
-              {filteredUsers.map((u) => {
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    Loading admin observability metrics...
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    No users registered yet. When users sign up, their metrics and quota controls will appear here.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((u) => {
                 const percentUsed = Math.min(Math.round((u.reviewsCount / u.maxReviews) * 100), 100);
                 const isOverLimit = u.reviewsCount >= u.maxReviews;
 
