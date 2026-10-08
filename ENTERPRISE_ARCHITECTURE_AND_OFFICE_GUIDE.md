@@ -1,0 +1,155 @@
+# PRReviewPilot — Enterprise AI Code Review Platform
+## Architectural Blueprint, System Design & Office Replication Guide
+
+---
+
+### Executive Overview & Live Links
+**PRReviewPilot** is a production-grade, multi-tenant AI code review automation platform built for engineering teams managing tens to hundreds of repositories across **GitHub** and **Bitbucket Cloud**. It slashes code review turnaround times by up to **80%**, automatically identifying security vulnerabilities, logic flaws, architectural regressions, and code smells directly on Pull Requests.
+
+- **Live Production URL**: [https://prreviewpilot.archadi.dev](https://prreviewpilot.archadi.dev)
+- **Source Code Repository**: [https://github.com/archaditya/PRReviewPilot](https://github.com/archaditya/PRReviewPilot)
+- **Reference Predecessor**: [PR_BOT](file:///b:/Personal-Projects/GenAI/PR-Review_Bot/PR_BOT) *(Legacy prototype transitioned from single-tenant scripts to this unified SaaS platform)*
+
+---
+
+## 1. High-Level System Architecture
+
+```
+                    ┌──────────────────────────────────────────────┐
+                    │               Developer / User               │
+                    └───────────────────────┬──────────────────────┘
+                                            │ HTTPS
+                                            ▼
+                    ┌──────────────────────────────────────────────┐
+                    │          Nginx Reverse Proxy (:443)          │
+                    │        (prreviewpilot.archadi.dev)           │
+                    └───────────────┬──────────────────────┬───────┘
+                                    │ /                    │ /api/*
+                                    ▼                      ▼
+┌───────────────────────────────────────┐  ┌───────────────────────────────────────┐
+│           Next.js 14 Frontend         │  │         Express Gateway (Node.js)     │
+│             (Port 3060)               │  │              (Port 4060)              │
+│  - Modern Glassmorphism Dashboard     │  │  - Multi-tenant Isolation Middleware  │
+│  - Interactive SVG Code Graph Engine  │  │  - GitHub App / Bitbucket Webhooks    │
+│  - Real-time Cost & Token Tracker UI  │  │  - Redis Dual JWT Session Lifecycle   │
+└───────────────────────────────────────┘  └──────┬──────────────┬───────────────┬─┘
+                                                  │              │               │
+                                                  ▼              ▼               ▼
+┌──────────────────────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
+│      FastAPI AI Review Engine    │ │  PostgreSQL 16 │ │     Redis 7    │ │ Git Providers  │
+│            (Port 8001)           │ │  (Persistence) │ │ (Cache/Session)│ │ (GitHub / BB)  │
+│ - Diff Capping (16k token ceiling)│ └────────────────┘ └────────────────┘ └────────────────┘
+│ - Structured JSON Schema Engine  │
+│ - OpenAI GPT-4o-mini Integration │
+└──────────────────────────────────┘
+```
+
+---
+
+## 2. Roles & Responsibilities Matrix
+
+| Role | Target Persona | Permissions & Capabilities | Security Boundary |
+| :--- | :--- | :--- | :--- |
+| **Superadmin (Platform Owner)** | Aditya / VP of Eng / DevOps Lead | • Access to `/dashboard/admin`<br>• Real-time token consumption & USD spend monitor<br>• Organization management & account suspension<br>• Global monthly review quotas per tenant | Can audit all tenant telemetry, token costs, and platform health; cannot view private repo source code. |
+| **Organization Owner / Tech Lead** | Engineering Manager / Team Lead | • Installs GitHub App or Bitbucket OAuth onto team workspace<br>• Controls review strictness profile (*Lenient / Balanced / Strict*)<br>• Monitors repository sync status & team member usage<br>• Customizes review guidelines per repo | Isolated strictly to their organization's repositories and PR metadata. |
+| **Developer / Contributor** | Software Engineer / QA | • Logs in via Email or 1-Click OAuth (GitHub / Bitbucket)<br>• Opens Pull Requests as usual on GitHub or Bitbucket<br>• Receives automated inline review comments within 30 seconds<br>• Views visual PR summary and dependency graph on dashboard | Isolated to repositories they have permissions for. |
+
+---
+
+## 3. How We Built It (Core Technical Pillars)
+
+### A. True Multi-Tenancy (Zero Shared Tokens)
+Unlike typical personal OAuth review bots where one personal token accesses everything:
+1. **GitHub App Flow**: ReviewPilot is registered as an enterprise GitHub App (`prreviewpilot-saas`). Installation ID is tied to the organization tenant. Whenever repos are added or removed, GitHub dispatches `installation_repositories` webhooks that automatically sync state without user manual effort.
+2. **Bitbucket Cloud Workspace OAuth**: Utilizes workspace-level OAuth consumers and auto-configures repository webhooks via API.
+
+### B. AI Cost Protection & Diff Capping Guardrail
+- Large PRs with autogenerated files or lockfiles can exhaust API token limits.
+- Built a custom **16,000 token diff capping engine** (`diff_capping.py`) that selectively truncates non-critical diff regions while preserving AST structure, protecting OpenAI budget from runaway billing.
+
+### C. Interactive Code Dependency Graph
+- Replaced heavyweight, memory-intensive graph databases (Neo4j) from the legacy bot with a responsive, browser-native SVG interactive dependency graph rendered directly in the Next.js client.
+
+### D. Session Lifecycle & Token Security
+- Dual-token JWT architecture (Short-lived access token + Redis-backed rolling refresh tokens with device fingerprinting and instant session revocation).
+
+---
+
+## 4. Office Replication Playbook: How to Deploy for 100+ Repositories
+
+If your engineering team wants to replicate this exact setup internally for your office:
+
+### Step 1: VPS / VM Sizing
+- **Recommended**: 2 vCPU, 4GB RAM, 40GB SSD (Ubuntu 22.04 / 24.04 LTS).
+- **Installed Pre-requisites**: `docker`, `docker-compose-plugin`, `nginx`, `certbot`.
+
+### Step 2: Clone & Configure Environment
+```bash
+git clone https://github.com/archaditya/PRReviewPilot.git
+cd PRReviewPilot
+cp .env.example .env
+```
+
+### Step 3: Configure `.env`
+Set your production domain, PostgreSQL password, OpenAI API key, and GitHub / Bitbucket credentials:
+```bash
+NODE_ENV=production
+APP_URL=https://prreviewpilot.yourcompany.com
+API_URL=https://prreviewpilot.yourcompany.com
+JWT_SECRET=super-secret-random-32-character-string
+API_PORT=4060
+WEB_PORT=3060
+POSTGRES_USER=prreviewpilot
+POSTGRES_PASSWORD=your_secure_db_password
+POSTGRES_DB=prreviewpilot_prod
+OPENAI_API_KEY=sk-proj-...
+OPENAI_MODEL=gpt-4o-mini
+GITHUB_APP_ID=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_WEBHOOK_SECRET=...
+GITHUB_APP_PRIVATE_KEY=... # Base64 encoded PEM
+BITBUCKET_CLIENT_ID=...
+BITBUCKET_CLIENT_SECRET=...
+BITBUCKET_REDIRECT_URI=https://prreviewpilot.yourcompany.com/api/auth/callback/bitbucket
+```
+
+### Step 4: Launch the Microservices Stack
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Step 5: Nginx SSL Reverse Proxy
+```nginx
+server {
+    server_name prreviewpilot.yourcompany.com;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:4060/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3060;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+Run `sudo certbot --nginx -d prreviewpilot.yourcompany.com` to enable HTTPS.
+
+---
+
+## 5. Security & Data Privacy Assurances
+1. **Zero Source Code Storage**: The platform never stores customer source code in its database. Only commit SHAs, PR metadata, and AI review comments are persisted.
+2. **Ephemeral Memory Processing**: Diffs received via webhooks are processed in memory by the AI service and discarded immediately after review generation.
+3. **Cryptographic Webhook Verification**: All GitHub (`sha256`) and Bitbucket webhook payloads are cryptographically validated against secrets before processing.

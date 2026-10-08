@@ -1,18 +1,26 @@
 const fs = require('fs');
-const { App } = require('@octokit/app');
-const { Octokit } = require('@octokit/rest');
 const config = require('../config');
 const db = require('../models');
 const logger = require('../utils/logger');
 
+let AppClass = null;
+async function getAppClass() {
+  if (!AppClass) {
+    const mod = await import('@octokit/app');
+    AppClass = mod.App;
+  }
+  return AppClass;
+}
+
 class GitHubAppService {
   constructor() {
     this.app = null;
-    this.initApp();
+    this.initPromise = this.initApp();
   }
 
-  initApp() {
+  async initApp() {
     try {
+      const App = await getAppClass();
       let privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
       if (!privateKey && config.github.privateKeyPath && fs.existsSync(config.github.privateKeyPath)) {
         privateKey = fs.readFileSync(config.github.privateKeyPath, 'utf8');
@@ -51,6 +59,9 @@ class GitHubAppService {
   }
 
   async getInstallationOctokit(installationId) {
+    if (!this.app && this.initPromise) {
+      await this.initPromise;
+    }
     if (!this.app) {
       throw new Error('GitHub App is not configured on this server');
     }

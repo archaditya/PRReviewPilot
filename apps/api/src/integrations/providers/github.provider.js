@@ -1,9 +1,17 @@
 const crypto = require('crypto');
 const axios = require('axios');
-const { Octokit } = require('@octokit/rest');
 const BaseGitProvider = require('./provider.interface');
 const config = require('../../config');
 const logger = require('../../utils/logger');
+
+let OctokitClass = null;
+async function getOctokitClass() {
+  if (!OctokitClass) {
+    const mod = await import('@octokit/rest');
+    OctokitClass = mod.Octokit;
+  }
+  return OctokitClass;
+}
 
 class GitHubProvider extends BaseGitProvider {
   constructor() {
@@ -12,7 +20,8 @@ class GitHubProvider extends BaseGitProvider {
     this.clientSecret = config.github.clientSecret;
   }
 
-  getOctokit(accessToken) {
+  async getOctokit(accessToken) {
+    const Octokit = await getOctokitClass();
     return new Octokit({ auth: accessToken });
   }
 
@@ -41,7 +50,7 @@ class GitHubProvider extends BaseGitProvider {
   }
 
   async getUserProfile(accessToken) {
-    const octokit = this.getOctokit(accessToken);
+    const octokit = await this.getOctokit(accessToken);
     const { data: user } = await octokit.rest.users.getAuthenticated();
 
     let primaryEmail = user.email;
@@ -65,7 +74,7 @@ class GitHubProvider extends BaseGitProvider {
   }
 
   async listRepositories(accessToken, options = {}) {
-    const octokit = this.getOctokit(accessToken);
+    const octokit = await this.getOctokit(accessToken);
     const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser({
       sort: 'updated',
       per_page: options.perPage || 50,
@@ -87,7 +96,7 @@ class GitHubProvider extends BaseGitProvider {
 
   async getPullRequest(accessToken, repoFullName, prNumber) {
     const [owner, repo] = repoFullName.split('/');
-    const octokit = this.getOctokit(accessToken);
+    const octokit = await this.getOctokit(accessToken);
 
     const { data: pr } = await octokit.rest.pulls.get({
       owner,
@@ -125,7 +134,7 @@ class GitHubProvider extends BaseGitProvider {
 
   async postComment(accessToken, repoFullName, prNumber, comment) {
     const [owner, repo] = repoFullName.split('/');
-    const octokit = this.getOctokit(accessToken);
+    const octokit = await this.getOctokit(accessToken);
 
     // If it's an inline review comment
     if (comment.filePath && comment.commitSha && comment.lineNumber) {
@@ -159,7 +168,7 @@ class GitHubProvider extends BaseGitProvider {
 
   async createWebhook(accessToken, repoFullName, webhookUrl, secret) {
     const [owner, repo] = repoFullName.split('/');
-    const octokit = this.getOctokit(accessToken);
+    const octokit = await this.getOctokit(accessToken);
 
     const { data } = await octokit.rest.repos.createWebhook({
       owner,
