@@ -28,6 +28,7 @@ import {
   Bot,
   Save,
   CheckCircle2,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useReviewJobs } from '@/hooks/use-review-jobs';
@@ -100,204 +101,181 @@ export default function RepositoryDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="font-mono text-xl font-semibold tracking-tight">{repository.fullName}</h1>
+            <h1 className="font-mono text-xl sm:text-2xl font-semibold tracking-tight text-white">{repository.fullName}</h1>
             <IndexStatusBadge status={repository.indexStatus} />
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {repository.isActive ? 'Automated PR reviews are enabled' : 'Automated reviews are currently paused'}
+          <p className="text-sm text-neutral-400 mt-1">
+            {repository.isActive ? 'Automated PR reviews are enabled for this repository.' : 'Automated reviews are currently paused.'} Grounded with <span className="highlight">deep ast graph traversal</span>.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {isIndexing && (
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => resetIndexRepository.mutate()}
               disabled={resetIndexRepository.isPending}
-              className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground hover:text-destructive"
+              className="flex items-center gap-1.5 font-mono text-xs text-neutral-400 hover:text-red-400 px-3 py-1.5 rounded-md border border-white/10 bg-white/5 transition-colors"
               title="Reset stuck indexing state"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset Index
-            </Button>
+              <span>Reset Index</span>
+            </button>
           )}
 
-          <Link href={`/dashboard/repositories/${repository.id}/chat`}>
-            <Button
-              variant="default"
-              size="sm"
-              className="flex items-center gap-1.5 font-mono text-xs bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
-            >
-              <MessageSquareCode className="h-3.5 w-3.5" />
-              Chat with Repo
-            </Button>
+          <Link href={`/dashboard/repositories/${repository.id}/chat`} className="btn-asym text-xs">
+            <MessageSquareCode className="h-3.5 w-3.5" />
+            <span>Chat with Repo</span>
+            <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
 
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => reindexRepository.mutate()}
             disabled={isIndexing || reindexRepository.isPending}
-            className="flex items-center gap-1.5 font-mono text-xs"
+            className="btn-asym-mirror text-xs"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isIndexing || reindexRepository.isPending ? 'animate-spin' : ''}`} />
-            {isIndexing ? 'Indexing...' : 'Re-index Graph'}
-          </Button>
+            <span>{isIndexing ? 'Indexing...' : 'Re-index Graph'}</span>
+          </button>
 
-          <Button
-            variant={repository.isActive ? 'outline' : 'default'}
-            size="sm"
+          <button
             onClick={() => updateRepository.mutate(!repository.isActive)}
             disabled={updateRepository.isPending}
+            className="text-xs px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors"
           >
             {repository.isActive ? 'Pause reviews' : 'Resume reviews'}
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Index Error Alert */}
       {repository.indexError && (
-        <div className="flex items-start justify-between gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="flex items-start justify-between gap-2.5 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-400">
           <div className="flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold">Indexing Failed</p>
-              <p className="font-mono text-xs opacity-90">{repository.indexError}</p>
+              <p className="font-medium text-red-300">Indexing Failed</p>
+              <p className="font-mono text-xs opacity-90 mt-0.5">{repository.indexError}</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => resetIndexRepository.mutate()}
-            className="text-xs shrink-0"
+            className="px-2.5 py-1 rounded-md border border-red-500/30 text-xs shrink-0 hover:bg-red-500/10 text-red-300"
           >
             Clear Error
-          </Button>
+          </button>
         </div>
       )}
 
       {/* Code Knowledge Graph Card */}
-      <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-        <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+      <div className="card-chai p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-primary" />
-            <h2 className="font-mono text-xs uppercase tracking-widest text-foreground font-semibold">
+            <Database className="h-4 w-4 text-neutral-400" />
+            <h2 className="font-montserrat font-medium text-sm text-white">
               Code Knowledge Graph
             </h2>
           </div>
-          <span className="font-mono text-[11px] text-muted-foreground">Neo4j Persistent Graph</span>
+          <span className="font-mono text-[11px] text-neutral-500">Neo4j Persistent Graph</span>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+          <div className="flex flex-col gap-1 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+            <span className="text-[11px] font-mono text-neutral-500 flex items-center gap-1">
               <FileCode2 className="h-3 w-3" /> Indexed Files
             </span>
-            <span className="font-mono text-base font-semibold">{repository.fileCount || 0}</span>
+            <span className="font-mono text-lg font-medium text-white">{repository.fileCount || 0}</span>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+          <div className="flex flex-col gap-1 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+            <span className="text-[11px] font-mono text-neutral-500 flex items-center gap-1">
               <Database className="h-3 w-3" /> Indexed Symbols
             </span>
-            <span className="font-mono text-base font-semibold">{repository.symbolCount || 0}</span>
+            <span className="font-mono text-lg font-medium text-white">{repository.symbolCount || 0}</span>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+          <div className="flex flex-col gap-1 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+            <span className="text-[11px] font-mono text-neutral-500 flex items-center gap-1">
               <GitBranch className="h-3 w-3" /> Default Branch
             </span>
-            <span className="font-mono text-base font-semibold">{repository.defaultBranch || 'main'}</span>
+            <span className="font-mono text-lg font-medium text-white">{repository.defaultBranch || 'main'}</span>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+          <div className="flex flex-col gap-1 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+            <span className="text-[11px] font-mono text-neutral-500 flex items-center gap-1">
               <GitCommit className="h-3 w-3" /> Indexed Commit
             </span>
-            <span className="font-mono text-xs font-semibold truncate" title={repository.indexedCommitSha || 'None'}>
-              {repository.indexedCommitSha ? repository.indexedCommitSha.substring(0, 8) : '—'}
+            <span className="font-mono text-xs font-medium text-neutral-300 truncate" title={repository.indexedCommitSha || 'None'}>
+              {repository.indexedCommitSha ? repository.indexedCommitSha.substring(0, 8) : 'Not indexed'}
             </span>
           </div>
         </div>
 
         {/* How Indexing Works — expandable section */}
-        <div className="mt-4 pt-3 border-t border-border">
+        <div className="pt-3 border-t border-white/10">
           <button
             onClick={() => setShowHowItWorks((prev) => !prev)}
-            className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors w-full"
+            className="flex items-center gap-1.5 text-[11px] font-mono text-neutral-400 hover:text-white transition-colors w-full"
           >
-            <Info className="h-3 w-3" />
-            <span>How Indexing Works</span>
+            <Info className="h-3.5 w-3.5" />
+            <span>How indexing works</span>
             {showHowItWorks ? (
-              <ChevronDown className="h-3 w-3 ml-auto" />
+              <ChevronDown className="h-3.5 w-3.5 ml-auto" />
             ) : (
-              <ChevronRight className="h-3 w-3 ml-auto" />
+              <ChevronRight className="h-3.5 w-3.5 ml-auto" />
             )}
           </button>
 
           {showHowItWorks && (
-            <div className="mt-3 flex flex-col gap-3 text-[11px] text-muted-foreground">
+            <div className="mt-4 flex flex-col gap-3 text-xs text-neutral-400">
               {/* Pipeline stages */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-muted/20 p-3">
-                  <div className="flex items-center gap-1.5 font-mono font-medium text-foreground">
-                    <TreePine className="h-3 w-3 text-primary" />
+                <div className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                  <div className="flex items-center gap-1.5 font-montserrat font-medium text-white text-xs">
+                    <TreePine className="h-3.5 w-3.5 text-neutral-400" />
                     1. Parse (Tree-sitter)
                   </div>
-                  <p className="leading-relaxed">
-                    Each source file is parsed using Tree-sitter to build an AST (Abstract Syntax Tree).
-                    Tree-sitter provides <strong className="text-foreground">syntax-level</strong> parsing — functions, classes, imports, exports.
+                  <p className="leading-relaxed text-[11px]">
+                    Each source file is parsed using Tree-sitter to build an AST (Abstract Syntax Tree), providing syntax-level parsing for functions, classes, imports, and exports.
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-muted/20 p-3">
-                  <div className="flex items-center gap-1.5 font-mono font-medium text-foreground">
-                    <Workflow className="h-3 w-3 text-primary" />
+                <div className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                  <div className="flex items-center gap-1.5 font-montserrat font-medium text-white text-xs">
+                    <Workflow className="h-3.5 w-3.5 text-neutral-400" />
                     2. Extract Symbols
                   </div>
-                  <p className="leading-relaxed">
-                    From each AST, we extract <strong className="text-foreground">symbols</strong> (functions, classes, variables)
-                    and <strong className="text-foreground">edges</strong> (calls, imports, exports) — the building blocks of the knowledge graph.
+                  <p className="leading-relaxed text-[11px]">
+                    From each AST, we extract symbols (functions, classes, variables) and edges (calls, imports, exports) as nodes and relationships.
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-muted/20 p-3">
-                  <div className="flex items-center gap-1.5 font-mono font-medium text-foreground">
-                    <Waypoints className="h-3 w-3 text-primary" />
+                <div className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                  <div className="flex items-center gap-1.5 font-montserrat font-medium text-white text-xs">
+                    <Waypoints className="h-3.5 w-3.5 text-neutral-400" />
                     3. Build Graph (Neo4j)
                   </div>
-                  <p className="leading-relaxed">
-                    Symbols and edges are stored in <strong className="text-foreground">Neo4j</strong> as a persistent code knowledge graph.
-                    During PR review, this graph powers blast-radius analysis — callers, callees, affected endpoints.
+                  <p className="leading-relaxed text-[11px]">
+                    Symbols and edges are stored in Neo4j as a persistent code knowledge graph, powering blast-radius analysis during automated PR review.
                   </p>
                 </div>
               </div>
 
               {/* Incremental indexing note */}
-              <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-3">
-                <Hash className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                <Hash className="h-4 w-4 text-neutral-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-mono font-medium text-foreground">Incremental Indexing (SHA256)</p>
-                  <p className="leading-relaxed mt-1">
-                    Every file&apos;s content is hashed (SHA256). On subsequent pushes to the default branch,
-                    only files where <code className="text-foreground bg-muted px-1 rounded">hash_old ≠ hash_new</code> are re-parsed.
-                    Unchanged files are skipped entirely. Deleted files have their subgraph removed.
+                  <p className="font-montserrat font-medium text-white text-xs">Incremental indexing with SHA-256</p>
+                  <p className="leading-relaxed mt-1 text-[11px] text-neutral-400">
+                    File contents are hashed. On subsequent pushes to the default branch, only changed files are re-parsed. Unchanged files are skipped, and deleted files have their subgraph pruned.
                   </p>
                 </div>
               </div>
-
-              {/* Clarification */}
-              <p className="text-[10px] text-muted-foreground/60 italic">
-                Note: Tree-sitter provides syntax/AST parsing only. Call-graph resolution and semantic analysis
-                are separate steps built on top of the parsed AST data.
-              </p>
             </div>
           )}
         </div>
 
         {repository.indexedAt && (
-          <div className="mt-3 pt-3 border-t border-border flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+          <div className="pt-2 border-t border-white/10 flex items-center gap-1 text-[11px] font-mono text-neutral-500">
             <Clock className="h-3 w-3" />
             <span>Last indexed: {new Date(repository.indexedAt).toLocaleString()}</span>
           </div>
@@ -305,22 +283,22 @@ export default function RepositoryDetailPage() {
       </div>
 
       {/* AI Review & Bot Settings Card */}
-      <div className="rounded-lg border border-border bg-card p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
+      <div className="card-chai p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
-            <Sliders className="h-4 w-4 text-primary" />
-            <h2 className="font-mono text-xs uppercase tracking-widest text-foreground font-semibold">
+            <Sliders className="h-4 w-4 text-neutral-400" />
+            <h2 className="font-montserrat font-medium text-sm text-white">
               AI Review & Repository Automation Settings
             </h2>
           </div>
           <div>
             {aiReviewEnabled ? (
-              <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400 bg-emerald-500/5 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                 <CheckCircle2 className="h-3 w-3" />
                 Reviews Active
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              <span className="inline-flex items-center gap-1 font-mono text-xs text-neutral-400 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
                 <Ban className="h-3 w-3" />
                 Reviews Muted
               </span>
@@ -331,10 +309,10 @@ export default function RepositoryDetailPage() {
         <form onSubmit={handleSaveRepoSettings} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Review Toggle */}
-            <div className="rounded-md border border-border bg-background p-4 flex items-center justify-between">
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Automated Pull Request Reviews</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs font-medium text-white">Automated pull request reviews</p>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
                   When enabled, bot generates findings and summary comments on newly opened PRs.
                 </p>
               </div>
@@ -342,22 +320,22 @@ export default function RepositoryDetailPage() {
                 type="checkbox"
                 checked={aiReviewEnabled}
                 onChange={(e) => setAiReviewEnabled(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary"
+                className="h-4 w-4 rounded border-white/20 bg-neutral-900 text-white focus:ring-0"
               />
             </div>
 
             {/* Review Sensitivity */}
-            <div className="rounded-md border border-border bg-background p-4 flex flex-col justify-between">
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-col justify-between">
               <div>
-                <label className="block text-sm font-medium mb-0.5">Review Sensitivity Level</label>
-                <p className="text-xs text-muted-foreground mb-2">
+                <label className="block text-xs font-medium text-white mb-0.5">Review sensitivity level</label>
+                <p className="text-[11px] text-neutral-400 mb-2">
                   Controls the depth and strictness of findings reported on PRs.
                 </p>
               </div>
               <select
                 value={reviewLevel}
                 onChange={(e) => setReviewLevel(e.target.value as any)}
-                className="w-full rounded-md border border-border bg-card px-3 py-1.5 text-xs font-mono focus:border-primary focus:outline-none"
+                className="w-full rounded-md border border-white/10 bg-neutral-900 px-3 py-1.5 text-xs font-mono text-neutral-200 focus:outline-none focus:border-white/30"
               >
                 <option value="balanced">Balanced (Recommended: bugs, security, breaking changes)</option>
                 <option value="strict">Strict (Deep checks, edge cases, tests, typing)</option>
@@ -367,27 +345,31 @@ export default function RepositoryDetailPage() {
           </div>
 
           {/* Custom Voice for Social Media */}
-          <div className="rounded-md border border-border bg-background p-4 space-y-1.5">
-            <label className="block text-sm font-medium">
-              Custom Social Media Voice & Tone
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-1.5">
+            <label className="block text-xs font-medium text-white">
+              Custom social media voice & tone
             </label>
-            <p className="text-xs text-muted-foreground">
-              Define the personality and technical description for social posts generated from this repository (leave empty to use default).
+            <p className="text-[11px] text-neutral-400">
+              Define the personality and technical description for social posts generated from this repository.
             </p>
             <textarea
               rows={2}
               value={customVoice}
               onChange={(e) => setCustomVoice(e.target.value)}
-              placeholder="e.g. A cloud-native file storage platform — technical, developer-focused, architecture-oriented"
-              className="w-full rounded-md border border-border bg-card p-2.5 text-xs leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none resize-none font-sans"
+              placeholder="e.g. A cloud-native file storage platform, technical, developer-focused, architecture-oriented"
+              className="w-full rounded-md border border-white/10 bg-neutral-900 p-2.5 text-xs text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:border-white/30 resize-none font-sans"
             />
           </div>
 
           <div className="flex justify-end pt-1">
-            <Button type="submit" size="sm" disabled={updateRepository.isPending} className="gap-1.5">
+            <button
+              type="submit"
+              disabled={updateRepository.isPending}
+              className="btn-asym text-xs"
+            >
               <Save className="h-3.5 w-3.5" />
-              {updateRepository.isPending ? 'Saving Settings...' : 'Save Repository Settings'}
-            </Button>
+              <span>{updateRepository.isPending ? 'Saving Settings...' : 'Save Repository Settings'}</span>
+            </button>
           </div>
         </form>
       </div>
@@ -395,15 +377,15 @@ export default function RepositoryDetailPage() {
       {/* Review Activity */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground font-semibold">
-            Review activity
+          <h2 className="font-montserrat font-medium text-sm text-white">
+            Review Activity
           </h2>
         </div>
 
         {jobsLoading && (
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+              <Skeleton key={i} className="h-14 w-full rounded-xl" />
             ))}
           </div>
         )}
@@ -416,27 +398,27 @@ export default function RepositoryDetailPage() {
         )}
 
         {jobs && jobs.length > 0 && (
-          <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
+          <div className="card-chai p-0 divide-y divide-white/5 overflow-hidden">
             {jobs.map((job) => {
               const inFlight = job.status !== 'COMPLETED' && job.status !== 'FAILED';
 
               return (
                 <div
                   key={job.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-accent/40"
+                  className="flex items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.02]"
                 >
                   <Link
                     href={`/dashboard/reviews/${job.id}`}
-                    className="flex flex-1 flex-col gap-0.5 overflow-hidden"
+                    className="flex flex-1 flex-col gap-0.5 overflow-hidden group"
                   >
-                    <span className="text-sm font-medium hover:underline truncate">
+                    <span className="text-sm font-medium text-white group-hover:text-neutral-200 truncate">
                       #{job.pullRequest?.githubPrNumber} {job.pullRequest?.title}
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="font-mono text-xs text-neutral-500">
                       @{job.pullRequest?.authorLogin} &bull; {new Date(job.createdAt).toLocaleDateString()}
                     </span>
                     {job.error && (
-                      <span className="text-xs text-destructive truncate max-w-md font-mono mt-0.5">
+                      <span className="text-xs text-red-400 truncate max-w-md font-mono mt-0.5">
                         Error: {job.error}
                       </span>
                     )}
@@ -446,50 +428,44 @@ export default function RepositoryDetailPage() {
                     <StatusBadge status={job.status} />
 
                     {/* Job Actions: Retry, Cancel, Delete */}
-                    <div className="flex items-center gap-1 border-l border-border pl-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                    <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                      <button
                         onClick={(e) => {
                           e.preventDefault();
                           retryJob.mutate(job.id);
                         }}
                         disabled={retryJob.isPending}
                         title="Re-run Review"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary"
+                        className="p-1.5 rounded-md hover:bg-white/5 text-neutral-400 hover:text-white transition-colors"
                       >
                         <RotateCw className={`h-3.5 w-3.5 ${retryJob.isPending ? 'animate-spin' : ''}`} />
-                      </Button>
+                      </button>
 
                       {inFlight && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
+                        <button
                           onClick={(e) => {
                             e.preventDefault();
                             cancelJob.mutate(job.id);
                           }}
                           disabled={cancelJob.isPending}
                           title="Cancel / Stop Review"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          className="p-1.5 rounded-md hover:bg-white/5 text-neutral-400 hover:text-red-400 transition-colors"
                         >
                           <Ban className="h-3.5 w-3.5" />
-                        </Button>
+                        </button>
                       )}
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                      <button
                         onClick={(e) => {
                           e.preventDefault();
                           deleteJob.mutate(job.id);
                         }}
                         disabled={deleteJob.isPending}
                         title="Delete Review Record"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        className="p-1.5 rounded-md hover:bg-white/5 text-neutral-400 hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 </div>

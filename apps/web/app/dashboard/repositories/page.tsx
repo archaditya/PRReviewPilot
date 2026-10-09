@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { GitFork, GitBranch, Plus, ExternalLink, Settings2, CheckCircle2, Shield, RefreshCw, ChevronRight } from 'lucide-react';
+import { GitFork, GitBranch, Plus, ExternalLink, Settings2, CheckCircle2, Shield, RefreshCw, ChevronRight, ArrowUpRight } from 'lucide-react';
 
 interface Repo {
   id: string;
@@ -125,9 +125,9 @@ export default function RepositoriesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Monitored Repositories</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Repositories automatically synced via your GitHub App & Bitbucket Workspace installations.
+          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-white">Monitored Repositories</h1>
+          <p className="text-sm text-neutral-400 mt-1">
+            Repositories automatically synced via your GitHub App & Bitbucket installations for <span className="highlight">deep ast code analysis</span>.
           </p>
         </div>
 
@@ -137,21 +137,19 @@ export default function RepositoriesPage() {
             href="/api/integrations/github/install"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-700 hover:border-gray-500 text-white text-xs font-semibold flex items-center space-x-2 transition shadow-md"
+            className="btn-asym text-xs"
             title="Install app or add more repositories to existing installation"
           >
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-              <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-            </svg>
-            <span>+ Add / Manage Repos on GitHub</span>
+            <span>Add Repos on GitHub</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
           </a>
 
           <a
             href="/api/auth/login/bitbucket"
-            className="px-4 py-2.5 rounded-xl bg-blue-600/10 border border-blue-500/40 hover:border-blue-400 text-blue-300 text-xs font-semibold flex items-center space-x-2 transition shadow-md"
+            className="btn-asym-mirror text-xs"
           >
-            <GitBranch className="w-4 h-4 text-blue-400" />
-            <span>+ Connect Bitbucket</span>
+            <span>Connect Bitbucket</span>
+            <GitBranch className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
@@ -161,8 +159,8 @@ export default function RepositoriesPage() {
         <div
           className={`p-4 rounded-xl text-xs flex items-center justify-between border ${
             syncNotice.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+              ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
+              : 'bg-rose-500/5 border-rose-500/20 text-rose-400'
           }`}
         >
           <div className="flex items-center space-x-2">
@@ -175,7 +173,7 @@ export default function RepositoriesPage() {
           </div>
           <button
             onClick={() => setSyncNotice(null)}
-            className="text-gray-400 hover:text-white text-xs ml-4 font-mono"
+            className="text-neutral-400 hover:text-white text-xs ml-4 font-mono"
           >
             ✕
           </button>
@@ -183,16 +181,16 @@ export default function RepositoriesPage() {
       )}
 
       {/* Repositories List */}
-      <div className="glass-panel rounded-2xl border border-gray-800 overflow-hidden">
-        <div className="p-5 border-b border-gray-800/80 flex items-center justify-between">
+      <div className="card-chai p-0 overflow-hidden">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <h2 className="font-semibold text-white text-sm">Installed Repositories ({repos.length})</h2>
-            <span className="text-[11px] text-gray-400">• Zero-config webhook sync enabled</span>
+            <h2 className="font-montserrat font-medium text-white text-sm">Installed Repositories ({repos.length})</h2>
+            <span className="text-[11px] font-mono text-neutral-500">• Zero-config webhook sync enabled</span>
           </div>
           <button
             onClick={handleSyncInstallations}
             disabled={syncing}
-            className={`text-xs px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 flex items-center space-x-1.5 transition ${
+            className={`text-xs px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 flex items-center space-x-1.5 transition-colors ${
               syncing ? 'opacity-70 cursor-not-allowed' : ''
             }`}
           >
@@ -202,57 +200,51 @@ export default function RepositoriesPage() {
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-sm text-gray-400">Loading installed repositories...</div>
+          <div className="p-12 text-center text-sm font-mono text-neutral-500">Loading installed repositories...</div>
         ) : repos.length === 0 ? (
           <div className="p-12 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
+            <div className="w-12 h-12 rounded-xl bg-white/5 text-neutral-400 flex items-center justify-center mx-auto border border-white/10">
               <GitFork className="w-6 h-6" />
             </div>
             <div className="max-w-md mx-auto">
-              <h3 className="text-base font-semibold text-white">No Repositories Connected</h3>
-              <p className="mt-1 text-xs text-gray-400">
-                Install the PRReviewPilot GitHub App or link your Bitbucket account to grant access to repositories you want automated reviews on.
+              <h3 className="font-montserrat text-base font-medium text-white">No Repositories Connected</h3>
+              <p className="mt-1 text-xs text-neutral-400">
+                Install the PRReviewPilot GitHub App or link your Bitbucket account to grant access to repositories for automated PR reviews.
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={handleSyncInstallations}
                 disabled={syncing}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition flex items-center space-x-1.5"
+                className="btn-asym text-xs"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-                <span>{syncing ? 'Syncing...' : 'Sync Now from GitHub'}</span>
+                <span>Sync from GitHub</span>
               </button>
               <a
-                href="/api/integrations/github/install"
-                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition"
-              >
-                + Add / Manage on GitHub
-              </a>
-              <a
                 href="/api/auth/login/bitbucket"
-                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition"
+                className="btn-asym-mirror text-xs"
               >
                 Connect Bitbucket
               </a>
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-gray-800 text-sm">
+          <div className="divide-y divide-white/5 text-sm">
             {repos.map((repo) => (
-              <div key={repo.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-800/20 transition group">
+              <div key={repo.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors group">
                 <Link href={`/dashboard/repositories/${repo.id}`} className="space-y-1 flex-1 cursor-pointer">
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-white text-base group-hover:text-indigo-400 transition">{repo.providerFullName || repo.name}</span>
+                    <span className="font-mono font-medium text-white text-base group-hover:text-neutral-200 transition-colors">{repo.providerFullName || repo.name}</span>
                     {repo.provider === 'github' ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-800 text-gray-300">GitHub App</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono border border-white/10 bg-white/5 text-neutral-400">GitHub App</span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">Bitbucket</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono border border-blue-500/20 bg-blue-500/5 text-blue-400">Bitbucket</span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-400 flex items-center space-x-4">
-                    <span>Default branch: <code className="text-indigo-300">{repo.defaultBranch || 'main'}</code></span>
-                    <span className="text-indigo-400 text-[11px] group-hover:underline flex items-center gap-1">
+                  <div className="text-xs text-neutral-400 flex items-center space-x-4">
+                    <span>Default branch: <code className="text-neutral-300 font-mono">{repo.defaultBranch || 'main'}</code></span>
+                    <span className="text-neutral-400 text-[11px] group-hover:text-white flex items-center gap-1 transition-colors">
                       <span>View details, telemetry & rules</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </span>
@@ -263,11 +255,11 @@ export default function RepositoriesPage() {
                 <div className="flex items-center space-x-4">
                   {/* Strictness Policy Selector */}
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-400 font-medium">Policy:</span>
+                    <span className="text-xs text-neutral-400 font-medium">Policy:</span>
                     <select
                       value={repo.reviewPolicy?.strictness || 'balanced'}
                       onChange={(e) => updateStrictness(repo.id, e.target.value)}
-                      className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="px-2.5 py-1 rounded-md bg-neutral-900 border border-white/10 text-xs text-neutral-200 focus:outline-none focus:border-white/30"
                     >
                       <option value="lenient">Lenient (Critical Only)</option>
                       <option value="balanced">Balanced (Recommended)</option>
@@ -278,18 +270,18 @@ export default function RepositoriesPage() {
                   {/* Status Toggle Switch */}
                   <button
                     onClick={() => toggleRepoStatus(repo.id, repo.isActive)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                    className={`px-3 py-1 rounded-full text-xs font-mono border transition-colors ${
                       repo.isActive !== false
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-gray-800 text-gray-400 border-gray-700'
+                        ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/20'
+                        : 'bg-white/5 text-neutral-400 border-white/10'
                     }`}
                   >
-                    {repo.isActive !== false ? '● Reviewing Active' : '○ Paused'}
+                    {repo.isActive !== false ? '● Active' : '○ Paused'}
                   </button>
 
                   <Link
                     href={`/dashboard/repositories/${repo.id}`}
-                    className="p-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white transition"
+                    className="p-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
                     title="Open Repository Analytics & Config"
                   >
                     <ChevronRight className="w-4 h-4" />

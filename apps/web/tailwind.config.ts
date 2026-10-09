@@ -35,6 +35,11 @@ const config: Config = {
           foreground: 'hsl(var(--destructive-foreground))',
         },
         ring: 'hsl(var(--ring))',
+        brand: '#FF7D0C',
+        highlight: 'var(--highlight)',
+        'card-edge': 'var(--card-edge)',
+        'card-edge-hover': 'var(--card-edge-hover)',
+        'card-fill': 'var(--card-fill)',
         // Severity scale — used by SeverityBadge and FindingsList (app/agents' Finding schema)
         severity: {
           critical: 'hsl(var(--severity-critical))',
@@ -55,8 +60,10 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        montserrat: ['Montserrat', 'system-ui', 'sans-serif'],
+        brand: ['Onest', 'system-ui', 'sans-serif'],
+        mono: ['Geist Mono', 'ui-monospace', 'monospace'],
       },
       keyframes: {
         'pulse-ring': {

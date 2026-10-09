@@ -31,38 +31,38 @@ export default function RepositoryChatPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
       {/* Top Navigation & Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href={`/dashboard/repositories/${repository.id}`}
-            className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
             title="Back to Repository"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <MessageSquareCode className="h-5 w-5 text-violet-400" />
-              <h1 className="font-mono text-lg font-semibold tracking-tight">
+              <MessageSquareCode className="h-4 w-4 text-neutral-400" />
+              <h1 className="font-mono text-lg font-medium tracking-tight text-white">
                 {repository.fullName}
               </h1>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                Chat Mode
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/10 bg-white/5 text-neutral-300">
+                AST Graph Chat
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Natural language Q&A grounded in the AST Code Knowledge Graph
+            <p className="text-xs text-neutral-400 mt-0.5">
+              Natural language questions grounded in the <span className="highlight">ast code knowledge graph</span>.
             </p>
           </div>
         </div>
 
         <Link
           href={`/dashboard/repositories/${repository.id}`}
-          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
+          className="text-xs text-neutral-400 hover:text-white underline underline-offset-4 transition-colors font-mono"
         >
-          View Repo Dashboard
+          View repository dashboard
         </Link>
       </div>
 
