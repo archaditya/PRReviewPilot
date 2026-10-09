@@ -36,6 +36,7 @@ import {
   Send,
   Sparkles,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useReviewJobs } from '@/hooks/use-review-jobs';
@@ -148,18 +149,48 @@ export default function RepositoryDetailPage() {
   // Active selected review job for modal/drawer
   const activeJob = jobs?.find((j) => j.id === selectedJobId) || jobs?.[0];
 
+  const repoFullName = repository.fullName || repository.providerFullName || repository.name || 'Repository';
+
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="font-mono text-xl sm:text-2xl font-semibold tracking-tight text-white">
-              {repository.fullName || repository.providerFullName || repository.name || 'Repository'}
+      {/* ── Breadcrumbs & Back Bar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+        <nav className="flex items-center gap-2 text-xs font-mono text-neutral-400">
+          <Link href="/dashboard" className="hover:text-white transition-colors">
+            Dashboard
+          </Link>
+          <ChevronRight className="h-3 w-3 text-neutral-600" />
+          <Link href="/dashboard/repositories" className="hover:text-white transition-colors">
+            Repositories
+          </Link>
+          <ChevronRight className="h-3 w-3 text-neutral-600" />
+          <span className="text-orange-400 font-medium truncate max-w-[220px] sm:max-w-none">
+            {repoFullName}
+          </span>
+        </nav>
+
+        <Link
+          href="/dashboard/repositories"
+          className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-300 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 transition-colors self-start sm:self-auto"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to Repositories</span>
+        </Link>
+      </div>
+
+      {/* ── Repository Hero Header ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 p-5 sm:p-6 rounded-xl border border-white/10 bg-[#0c0e12]">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-white">
+              {repoFullName}
             </h1>
             <IndexStatusBadge status={repository.indexStatus} />
+            <span className="font-mono text-[10px] text-neutral-400 px-2.5 py-0.5 rounded border border-white/10 bg-white/5">
+              branch: {repository.defaultBranch || 'main'}
+            </span>
           </div>
-          <p className="text-xs sm:text-sm text-neutral-400 mt-1">
+          <p className="text-xs sm:text-sm text-neutral-400 max-w-2xl leading-relaxed">
             {repository.isActive !== false
               ? 'Automated PR reviews are active for this repository.'
               : 'Automated reviews are currently paused.'}{' '}
@@ -167,38 +198,42 @@ export default function RepositoryDetailPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Aligned Responsive Action Toolbar */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
           {isIndexing && (
             <button
               onClick={() => resetIndexRepository.mutate()}
               disabled={resetIndexRepository.isPending}
-              className="flex items-center gap-1.5 font-mono text-xs text-neutral-400 hover:text-red-400 px-3 py-1.5 rounded-md border border-white/10 bg-white/5 transition-colors"
+              className="inline-flex items-center gap-1.5 font-mono text-xs text-neutral-400 hover:text-red-400 px-3 py-2 rounded-lg border border-white/10 bg-white/5 transition-colors"
               title="Reset stuck indexing state"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>Reset Index</span>
+              <span>Reset</span>
             </button>
           )}
 
-          <Link href={`/dashboard/repositories/${repository.id}/chat`} className="btn-asym text-xs">
-            <MessageSquareCode className="h-3.5 w-3.5" />
+          <Link
+            href={`/dashboard/repositories/${repository.id}/chat`}
+            className="inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white transition-colors whitespace-nowrap"
+          >
+            <MessageSquareCode className="h-3.5 w-3.5 text-orange-400" />
             <span>Chat with Repo</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
+            <ArrowUpRight className="h-3.5 w-3.5 text-neutral-500" />
           </Link>
 
           <button
             onClick={() => reindexRepository.mutate()}
             disabled={isIndexing || reindexRepository.isPending}
-            className="btn-asym-mirror text-xs"
+            className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isIndexing || reindexRepository.isPending ? 'animate-spin text-orange-400' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isIndexing || reindexRepository.isPending ? 'animate-spin' : ''}`} />
             <span>{isIndexing ? 'Indexing...' : 'Re-index Graph'}</span>
           </button>
 
           <button
             onClick={() => updateRepository.mutate(!repository.isActive)}
             disabled={updateRepository.isPending}
-            className="text-xs px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors whitespace-nowrap"
           >
             {repository.isActive !== false ? 'Pause reviews' : 'Resume reviews'}
           </button>
@@ -207,20 +242,30 @@ export default function RepositoryDetailPage() {
 
       {/* Index Error Alert */}
       {repository.indexError && (
-        <div className="flex items-start justify-between gap-2.5 rounded-lg border border-red-500/25 bg-red-500/10 p-3.5 text-xs text-red-400">
-          <div className="flex items-start gap-2.5">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
             <div>
-              <p className="font-semibold text-red-300">Indexing Error</p>
-              <p className="font-mono text-xs opacity-90 mt-0.5">{repository.indexError}</p>
+              <p className="font-semibold text-red-300 text-sm">Indexing Error</p>
+              <p className="font-mono text-xs text-red-200/90 mt-1">{repository.indexError}</p>
             </div>
           </div>
-          <button
-            onClick={() => resetIndexRepository.mutate()}
-            className="px-2.5 py-1 rounded-md border border-red-500/30 text-xs shrink-0 hover:bg-red-500/20 text-red-300 transition-colors"
-          >
-            Clear Error
-          </button>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <button
+              onClick={() => reindexRepository.mutate()}
+              disabled={isIndexing || reindexRepository.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-black font-semibold text-xs transition-colors shadow-sm"
+            >
+              <RefreshCw className={`h-3 w-3 ${isIndexing || reindexRepository.isPending ? 'animate-spin' : ''}`} />
+              <span>Retry Indexing</span>
+            </button>
+            <button
+              onClick={() => resetIndexRepository.mutate()}
+              className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 text-neutral-300 text-xs transition-colors"
+            >
+              Clear Error
+            </button>
+          </div>
         </div>
       )}
 
@@ -624,7 +669,7 @@ export default function RepositoryDetailPage() {
                 onChange={(e) => setPrChatInput(e.target.value)}
                 className="flex-1 rounded-md border border-white/10 bg-neutral-900 px-3 py-1.5 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-orange-500/50"
               />
-              <button type="submit" className="btn-asym text-xs px-3">
+              <button type="submit" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-orange-500 hover:bg-orange-400 text-black font-semibold text-xs transition-colors shrink-0">
                 <Send className="h-3 w-3" />
                 <span>Send</span>
               </button>
@@ -716,7 +761,7 @@ export default function RepositoryDetailPage() {
             <button
               type="submit"
               disabled={updateRepository.isPending}
-              className="btn-asym text-xs"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black font-semibold text-xs transition-colors shadow-sm disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
               <span>{updateRepository.isPending ? 'Saving Settings...' : 'Save Review Guardrails'}</span>

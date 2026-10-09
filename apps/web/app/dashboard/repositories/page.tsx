@@ -166,12 +166,21 @@ export default function RepositoriesPage() {
         </div>
 
         {/* Integration Action Buttons */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleSyncInstallations}
+            disabled={syncing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-neutral-200 text-xs font-medium transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin text-orange-400' : ''}`} />
+            <span>{syncing ? 'Syncing...' : 'Sync GitHub'}</span>
+          </button>
+
           <a
             href="/api/integrations/github/install"
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-asym text-xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black font-semibold text-xs transition-colors shadow-sm"
             title="Install app or add more repositories to existing installation"
           >
             <span>Add Repos on GitHub</span>
@@ -180,10 +189,10 @@ export default function RepositoriesPage() {
 
           <a
             href="/api/auth/login/bitbucket"
-            className="btn-asym-mirror text-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 text-xs font-medium transition-colors"
           >
+            <GitBranch className="w-3.5 h-3.5 text-neutral-400" />
             <span>Connect Bitbucket</span>
-            <GitBranch className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>
