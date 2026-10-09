@@ -258,15 +258,19 @@ class RepoController {
         branch: repo.defaultBranch || 'main',
       };
 
-      // Dispatch via Inngest and background worker fallback
+      // Directly trigger runIndexJob in background immediately
+      repositoryService.runIndexJob(jobPayload).catch((err) => {
+        const logger = require('../utils/logger');
+        logger.error({ repositoryId: repo.id, err: err?.message || err }, 'Direct background runIndexJob error');
+      });
+
+      // Also send event to Inngest if Inngest runner is available
       inngest
         .send({
           name: 'repo/index.requested',
           data: jobPayload,
         })
-        .catch((err) => {
-          repositoryService.runIndexJob(jobPayload).catch(() => {});
-        });
+        .catch(() => {});
 
       return res.json({ success: true, message: 'Reindexing triggered', repository: repo });
     } catch (err) {
@@ -286,6 +290,9 @@ class RepoController {
       repo.indexStatus = 'NOT_INDEXED';
       repo.indexError = null;
       await repo.save();
+
+      const eventBus = require('../services/event-bus.service');
+      eventBus.emitIndexStatusChange({ repositoryId: repo.id, indexStatus: 'NOT_INDEXED' });
 
       return res.json({ success: true, message: 'Index state reset', repository: repo });
     } catch (err) {

@@ -19,5 +19,12 @@ export function useRepository(id: string) {
       } as Repository;
     },
     enabled: Boolean(id),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.indexStatus === 'INDEXING' || data?.indexStatus === 'REINDEXING') {
+        return 3000;
+      }
+      return false;
+    },
   });
 }

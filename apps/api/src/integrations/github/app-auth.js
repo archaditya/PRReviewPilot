@@ -92,9 +92,9 @@ async function resolveNumericInstallationId(installationId) {
       }
     }
 
-    // 3. Fallback: find any active GitHub installation in this workspace
+    // 3. Fallback: find any GitHub installation in this workspace
     const anyInst = await db.Installation.findOne({
-      where: { provider: 'github', status: 'active' },
+      where: { provider: 'github' },
       order: [['createdAt', 'DESC']],
     });
     if (anyInst && anyInst.providerInstallationId && /^\d+$/.test(String(anyInst.providerInstallationId))) {
