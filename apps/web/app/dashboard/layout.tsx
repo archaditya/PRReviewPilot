@@ -102,11 +102,10 @@ export default function DashboardLayout({
 
   const isSuperOrAdmin = currentUser?.role === 'superadmin' || currentUser?.role === 'admin';
 
-  const navItems = [
+  const workspaceNavItems = [
     { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Repositories', href: '/dashboard/repositories', icon: GitFork },
     { name: 'Review Jobs', href: '/dashboard/reviews', icon: ListChecks },
-    ...(isSuperOrAdmin ? [{ name: 'Admin Controls', href: '/dashboard/admin', icon: Sliders }] : []),
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];
 
@@ -166,15 +165,18 @@ export default function DashboardLayout({
               </button>
             </div>
 
-            {/* Navigation Section */}
+            {/* Section 1: Developer Workspace */}
             <div className="space-y-1">
               <span className="font-mono text-[10px] font-medium text-neutral-500 uppercase tracking-wider px-3 mb-2 block">
                 Workspace Menu
               </span>
               <nav className="space-y-1">
-                {navItems.map((item) => {
+                {workspaceNavItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                  const isActive =
+                    item.href === '/dashboard'
+                      ? pathname === '/dashboard'
+                      : pathname.startsWith(item.href) && !pathname.startsWith('/dashboard/admin');
                   return (
                     <Link
                       key={item.href}
@@ -192,6 +194,35 @@ export default function DashboardLayout({
                 })}
               </nav>
             </div>
+
+            {/* Section 2: Dedicated Admin Control Center (Only for SuperAdmin / Admin) */}
+            {isSuperOrAdmin && (
+              <div className="pt-4 mt-4 border-t border-white/5 space-y-1">
+                <div className="flex items-center justify-between px-3 mb-2">
+                  <span className="font-mono text-[10px] font-medium text-orange-400 uppercase tracking-wider">
+                    System Control
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-[#F6821F]/15 text-[#F6821F] border border-[#F6821F]/30 uppercase">
+                    {currentUser?.role}
+                  </span>
+                </div>
+                <Link
+                  href="/dashboard/admin"
+                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    pathname.startsWith('/dashboard/admin')
+                      ? 'bg-[#F6821F]/15 text-white border-l-2 border-[#F6821F] rounded-l-none'
+                      : 'text-neutral-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <ShieldCheck
+                    className={`w-4 h-4 shrink-0 ${
+                      pathname.startsWith('/dashboard/admin') ? 'text-[#F6821F]' : 'text-neutral-400'
+                    }`}
+                  />
+                  <span>Admin Console</span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Bottom Utilities, Profile & Sign Out */}
@@ -254,11 +285,37 @@ export default function DashboardLayout({
             </button>
 
             <div className="flex items-center space-x-2 text-xs">
-              <span className="text-neutral-500">Workspace:</span>
-              <span className="text-white font-medium px-2.5 py-1 rounded-md bg-white/5 border border-white/10 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-neutral-400" />
-                <span>{currentUser?.name || "Admin's Workspace"}</span>
-              </span>
+              <span className="text-neutral-500">Mode:</span>
+              {pathname.startsWith('/dashboard/admin') ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium px-2.5 py-1 rounded-md bg-[#F6821F]/15 border border-[#F6821F]/30 text-[#F6821F] flex items-center gap-1.5 font-mono text-xs">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Admin Control Center</span>
+                  </span>
+                  <Link
+                    href="/dashboard"
+                    className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-neutral-400 hover:text-white px-2 py-0.5 rounded border border-white/10 hover:border-white/20 bg-white/5 transition-colors"
+                  >
+                    <span>Switch to Dev Workspace</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium px-2.5 py-1 rounded-md bg-white/5 border border-white/10 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-neutral-400" />
+                    <span>{currentUser?.name || "Developer Workspace"}</span>
+                  </span>
+                  {isSuperOrAdmin && (
+                    <Link
+                      href="/dashboard/admin"
+                      className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono text-orange-400 hover:text-orange-300 px-2 py-0.5 rounded border border-orange-500/20 hover:border-orange-500/40 bg-orange-500/5 transition-colors"
+                    >
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Admin Console</span>
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
