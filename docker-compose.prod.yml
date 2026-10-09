@@ -17,6 +17,26 @@ services:
     networks:
       - prreviewpilot-network
 
+  neo4j:
+    image: neo4j:5-community
+    container_name: prreviewpilot-prod-neo4j
+    restart: unless-stopped
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-archadi_prod_neo4j_sec_88492019384729182}
+      - NEO4J_server_memory_heap_initial__size=256m
+      - NEO4J_server_memory_heap_max__size=512m
+      - NEO4J_server_memory_pagecache_size=256m
+    volumes:
+      - prreviewpilot_neo4j_data_prod:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - prreviewpilot-network
+
   redis:
     image: redis:7-alpine
     container_name: prreviewpilot-prod-redis
@@ -50,6 +70,30 @@ services:
     networks:
       - prreviewpilot-network
 
+  indexer-service:
+    build:
+      context: ./apps/indexer-service
+      dockerfile: Dockerfile
+      target: prod
+    container_name: prreviewpilot-prod-indexer
+    restart: unless-stopped
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-archadi_prod_neo4j_sec_88492019384729182}
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - prreviewpilot_indexer_tmp_prod:/tmp/repos
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prreviewpilot-network
+
   api:
     build:
       context: ./apps/api
@@ -67,6 +111,12 @@ services:
       - REDIS_URL=redis://redis:6379
       - AI_SERVICE_URL=http://ai-service:8001
       - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY:-internal-ai-key}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-archadi_prod_neo4j_sec_88492019384729182}
+      - INDEXER_SERVICE_URL=http://indexer-service:8001
+      - INNGEST_DEV=http://inngest:8288
+      - INNGEST_BASE_URL=http://inngest:8288
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GITHUB_APP_ID=${GITHUB_APP_ID}
@@ -89,9 +139,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      neo4j:
+        condition: service_healthy
       redis:
         condition: service_healthy
       ai-service:
+        condition: service_healthy
+      indexer-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
@@ -116,9 +170,21 @@ services:
     networks:
       - prreviewpilot-network
 
+  inngest:
+    image: inngest/inngest:latest
+    container_name: prreviewpilot-prod-inngest
+    restart: unless-stopped
+    command: inngest dev -u http://api:4000/api/inngest
+    depends_on:
+      - api
+    networks:
+      - prreviewpilot-network
+
 volumes:
   prreviewpilot_postgres_data_prod:
   prreviewpilot_redis_data_prod:
+  prreviewpilot_neo4j_data_prod:
+  prreviewpilot_indexer_tmp_prod:
 
 networks:
   prreviewpilot-network:

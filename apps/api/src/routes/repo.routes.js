@@ -11,5 +11,9 @@ router.post('/connect', (req, res, next) => repoController.connectRepository(req
 router.get('/', (req, res, next) => repoController.listConnectedRepositories(req, res, next));
 router.get('/:id', (req, res, next) => repoController.getRepositoryDetails(req, res, next));
 router.patch('/:id/config', (req, res, next) => repoController.updateRepositoryConfig(req, res, next));
+router.post('/:id/reindex', (req, res, next) => repoController.reindexRepository(req, res, next));
+router.post('/:id/reset-index', (req, res, next) => repoController.resetIndexRepository(req, res, next));
+router.post('/:id/chat', (req, res, next) => repoController.chatWithRepo(req, res, next));
+router.get('/:id/graph', (req, res, next) => repoController.getGraphOverview(req, res, next));
 
 module.exports = router;

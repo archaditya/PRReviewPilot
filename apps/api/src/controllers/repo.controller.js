@@ -226,6 +226,114 @@ class RepoController {
       next(err);
     }
   }
+
+  // POST /api/repositories/:id/reindex
+  async reindexRepository(req, res, next) {
+    try {
+      const { id } = req.params;
+      const repo = await db.Repository.findByPk(id);
+      if (!repo) {
+        return res.status(404).json({ success: false, error: 'Repository not found' });
+      }
+
+      repo.indexStatus = 'INDEXING';
+      repo.indexError = null;
+      await repo.save();
+
+      const { inngest } = require('../jobs');
+      const fullName = repo.providerFullName || repo.name;
+      const parts = fullName.split('/');
+      const owner = parts.length > 1 ? parts[0] : 'owner';
+      const repoName = parts.length > 1 ? parts[1] : repo.name;
+
+      await inngest.send({
+        name: 'repo/index.requested',
+        data: {
+          repositoryId: repo.id,
+          installationId: repo.installationId,
+          owner,
+          repo: repoName,
+          branch: repo.defaultBranch || 'main',
+        },
+      });
+
+      return res.json({ success: true, message: 'Reindexing triggered', repository: repo });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // POST /api/repositories/:id/reset-index
+  async resetIndexRepository(req, res, next) {
+    try {
+      const { id } = req.params;
+      const repo = await db.Repository.findByPk(id);
+      if (!repo) {
+        return res.status(404).json({ success: false, error: 'Repository not found' });
+      }
+
+      repo.indexStatus = 'NOT_INDEXED';
+      repo.indexError = null;
+      await repo.save();
+
+      return res.json({ success: true, message: 'Index state reset', repository: repo });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // POST /api/repositories/:id/chat
+  async chatWithRepo(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { message, history } = req.body;
+      const repo = await db.Repository.findByPk(id);
+      if (!repo) {
+        return res.status(404).json({ success: false, error: 'Repository not found' });
+      }
+
+      const chatService = require('../services/chat.service');
+      const response = await chatService.answerQuestion({
+        repositoryId: id,
+        userId: req.user.id,
+        message,
+        history,
+      });
+
+      return res.json({ success: true, ...response });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // GET /api/repositories/:id/graph
+  async getGraphOverview(req, res, next) {
+    try {
+      const { id } = req.params;
+      const repo = await db.Repository.findByPk(id);
+      if (!repo) {
+        return res.status(404).json({ success: false, error: 'Repository not found' });
+      }
+
+      const indexerClient = require('../integrations/indexer-service-client');
+      const status = await indexerClient.getIndexStatus(id).catch(() => null);
+
+      return res.json({
+        success: true,
+        graph: {
+          repositoryId: id,
+          status: repo.indexStatus,
+          fileCount: repo.fileCount,
+          symbolCount: repo.symbolCount,
+          indexedCommitSha: repo.indexedCommitSha,
+          indexedAt: repo.indexedAt,
+          details: status,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new RepoController();

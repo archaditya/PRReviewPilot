@@ -51,6 +51,19 @@ const config = {
     redirectUri: process.env.BITBUCKET_REDIRECT_URI || 'http://localhost:4000/api/auth/callback/bitbucket',
   },
 
+  inngest: {
+    eventKey: process.env.INNGEST_EVENT_KEY || 'dev-event-key',
+    signingKey: process.env.INNGEST_SIGNING_KEY || '',
+  },
+
+  indexerServiceUrl: process.env.INDEXER_SERVICE_URL || 'http://indexer-service:8001',
+
+  neo4j: {
+    uri: process.env.NEO4J_URI || 'bolt://neo4j:7687',
+    user: process.env.NEO4J_USER || 'neo4j',
+    password: process.env.NEO4J_PASSWORD || 'archadi_prod_neo4j_sec_88492019384729182',
+  },
+
   brevo: {
     apiKey: process.env.BREVO_API_KEY || '',
     senderEmail: process.env.BREVO_SENDER_EMAIL || process.env.ADMIN_EMAIL || 'support@archadi.dev',

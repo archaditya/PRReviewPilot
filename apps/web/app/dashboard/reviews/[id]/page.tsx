@@ -1,268 +1,477 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
-  ShieldAlert,
+  RotateCw,
+  Ban,
+  Trash2,
+  AlertCircle,
+  Hash,
+  GitCommit,
+  GitPullRequest,
+  GitMerge,
   CheckCircle2,
+  Clock,
   Layers,
-  FileCode,
-  Check,
-  X,
-  PieChart,
-  ListFilter,
-  Activity,
-  GitBranch,
+  Loader2,
+  PenSquare,
 } from 'lucide-react';
-import { ReviewVisualSummary } from '@/components/review-visual-summary';
-import { CodeGraphView } from '@/components/code-graph-view';
+import { useReviewJob } from '@/hooks/use-review-job';
+import {
+  useCancelReviewJob,
+  useDeleteReviewJob,
+  useRetryReviewJob,
+} from '@/hooks/use-review-job-actions';
+import { useMergePR } from '@/hooks/use-merge-pr';
+import { PipelineStepper } from '@/components/pipeline-stepper';
+import { FindingsList } from '@/components/findings-list';
+import { PipelineActivityLog } from '@/components/pipeline-activity-log';
+import { ConversationThread } from '@/components/conversation-thread';
+import { SocialPostPanel } from '@/components/social-post-panel';
+import { StatusBadge } from '@/components/status-badge';
+import { EmptyState } from '@/components/empty-state';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { ReviewJobDetail } from '@/types/api';
 
-export default function ReviewDetailPage({ params }: { params: { id: string } }) {
-  const [activeTab, setActiveTab] = useState<'visual' | 'findings' | 'graph' | 'timeline'>('visual');
-  const [findings, setFindings] = useState([
-    {
-      id: 'f-1',
-      file: 'src/services/auth.service.js',
-      line: 48,
-      category: 'security',
-      severity: 'critical',
-      title: 'Insecure Token Generation without Cryptographic Salt',
-      message: 'The token hash does not enforce sufficient entropy and lacks a unique salt before storage, allowing possible precomputed rainbow table attacks.',
-      suggestion: 'const tokenHash = crypto.createHash(\'sha256\').update(token + process.env.TOKEN_SALT).digest(\'hex\');',
-      status: 'open',
-    },
-    {
-      id: 'f-2',
-      file: 'src/controllers/auth.controller.js',
-      line: 112,
-      category: 'bug_risk',
-      severity: 'high',
-      title: 'Unhandled Promise Rejection on Token Refresh',
-      message: 'The asynchronous callback does not catch network timeouts from the provider, potentially crashing the Node worker.',
-      suggestion: 'try {\n  await provider.refreshToken(token);\n} catch (err) {\n  logger.error({ err }, "Token refresh failed");\n  return res.status(401).json({ error: "Session expired" });\n}',
-      status: 'open',
-    },
-  ]);
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const mins = Math.floor(ms / 60_000);
+  const secs = Math.floor((ms % 60_000) / 1000);
+  return `${mins}m ${secs}s`;
+}
 
-  const timelineEvents = [
-    { title: 'Pull Request Webhook Received', time: '12:04:02 PM', desc: 'Triggered by GitHub push event on branch feat/oauth-rotation' },
-    { title: 'Unified Diff Extracted', time: '12:04:03 PM', desc: 'Fetched 3 modified files (+148, -32 lines)' },
-    { title: 'AST & Dependency Graph Analyzed', time: '12:04:05 PM', desc: 'Mapped imports: auth.routes.js -> auth.controller.js -> auth.service.js' },
-    { title: 'AI Code Review Engine Completed', time: '12:04:14 PM', desc: 'Identified 2 high-priority findings and calculated Risk Index: 82/100' },
-    { title: 'Inline PR Comments Posted', time: '12:04:16 PM', desc: 'Posted suggestions directly to GitHub PR #42 with suggestion diffs' },
-  ];
+export default function ReviewJobDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: job, isLoading } = useReviewJob(params.id);
 
-  const handleStatusChange = (id: string, newStatus: string) => {
-    setFindings((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: newStatus } : f))
+  const cancelJob = useCancelReviewJob();
+  const deleteJob = useDeleteReviewJob();
+  const retryJob = useRetryReviewJob();
+  const mergePR = useMergePR();
+
+  const [showSocialPanel, setShowSocialPanel] = useState(false);
+  const [mergeConfirm, setMergeConfirm] = useState(false);
+
+  // Handle deep-link query params from GitHub comments
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'post') setShowSocialPanel(true);
+    if (action === 'merge') setMergeConfirm(true);
+  }, [searchParams]);
+
+  // All runs for this PR (ordered newest first)
+  const runs: ReviewJobDetail[] = useMemo(() => {
+    if (!job) return [];
+    const list =
+      job.pullRequest?.reviewJobs && job.pullRequest.reviewJobs.length > 0
+        ? job.pullRequest.reviewJobs
+        : [job];
+
+    // Ensure currently selected job exists in the list
+    const hasCurrent = list.some((r) => r.id === job.id);
+    const combined = hasCurrent ? list : [job, ...list];
+
+    return [...combined].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-  };
+  }, [job]);
+
+  if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
+
+  if (!job) {
+    return (
+      <EmptyState
+        title="Review not found"
+        description="It may have been removed, or you no longer have access."
+      />
+    );
+  }
+
+  async function handleDelete(targetJobId: string) {
+    if (confirm('Are you sure you want to delete this review job?')) {
+      await deleteJob.mutateAsync(targetJobId);
+      router.replace('/dashboard/repositories');
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Top Bar Navigation */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/dashboard/reviews"
-          className="inline-flex items-center space-x-2 text-sm text-gray-400 hover:text-white transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Reviews</span>
-        </Link>
-
-        <div className="flex items-center space-x-2 text-xs text-gray-400">
-          <span>Review Job ID: <span className="font-mono text-gray-300">rev-101</span></span>
-        </div>
-      </div>
-
-      {/* Main Review Summary Header Card */}
-      <div className="glass-panel p-6 rounded-2xl border border-gray-800 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-gray-400">org/core-api</span>
-              <span className="text-gray-600">•</span>
-              <span className="text-xs text-indigo-400 font-medium">PR #42</span>
-              <span className="text-gray-600">•</span>
-              <span className="text-xs text-gray-400 flex items-center">
-                <GitBranch className="w-3 h-3 mr-1" /> feat/oauth-rotation
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mt-1">
-              Add OAuth refresh token rotation and session revocation
-            </h1>
-            <p className="text-xs text-gray-400 mt-1 flex items-center space-x-4">
-              <span>Author: dev-alex</span>
-              <span>Commit: 7f8a92b</span>
-              <span>Provider: GitHub</span>
-            </p>
+    <div className="flex flex-col gap-8 max-w-5xl pb-16">
+      {/* Header with Navigation & Actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-border pb-6">
+        <div className="flex flex-col gap-1.5">
+          <Link
+            href="/dashboard/repositories"
+            className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to Repositories
+          </Link>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="font-mono text-sm font-bold text-primary">
+              #{job.pullRequest?.githubPrNumber}
+            </span>
+            <h1 className="text-xl font-semibold tracking-tight">{job.pullRequest?.title}</h1>
           </div>
-
-          <div className="flex items-center space-x-3">
-            <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              🔴 CRITICAL RISK DETECTED
+          <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground font-mono">
+            <span>Author: @{job.pullRequest?.authorLogin}</span>
+            <span>&bull;</span>
+            <span>Created: {new Date(job.createdAt).toLocaleString()}</span>
+            {job.pullRequest?.headSha && (
+              <>
+                <span>&bull;</span>
+                <span className="inline-flex items-center gap-1 text-foreground bg-muted/80 px-2 py-0.5 rounded border border-border/60">
+                  <GitCommit className="h-3 w-3 text-primary" />
+                  {job.pullRequest.headSha.slice(0, 7)}
+                </span>
+              </>
+            )}
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-primary text-[11px] font-medium">
+              <Layers className="h-3 w-3" />
+              {runs.length} {runs.length === 1 ? 'Review Run' : 'Review Runs'}
             </span>
           </div>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex border-b border-gray-800 space-x-6 pt-2 text-sm">
-          <button
-            onClick={() => setActiveTab('visual')}
-            className={`pb-3 font-semibold flex items-center space-x-2 transition ${
-              activeTab === 'visual'
-                ? 'border-b-2 border-indigo-500 text-indigo-400'
-                : 'text-gray-400 hover:text-white'
-            }`}
+        {/* Global PR Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => retryJob.mutate(job.id)}
+            disabled={retryJob.isPending}
+            className="flex items-center gap-1.5 font-mono text-xs"
           >
-            <PieChart className="w-4 h-4" />
-            <span>Visual & Simpler Explanation</span>
-          </button>
+            <RotateCw className={`h-3.5 w-3.5 ${retryJob.isPending ? 'animate-spin' : ''}`} />
+            {retryJob.isPending ? 'Re-triggering...' : 'Re-run Review'}
+          </Button>
 
-          <button
-            onClick={() => setActiveTab('findings')}
-            className={`pb-3 font-semibold flex items-center space-x-2 transition ${
-              activeTab === 'findings'
-                ? 'border-b-2 border-indigo-500 text-indigo-400'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <ListFilter className="w-4 h-4" />
-            <span>Code Findings ({findings.length})</span>
-          </button>
+          {/* Merge PR */}
+          {!mergeConfirm ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMergeConfirm(true)}
+              disabled={mergePR.isPending || mergePR.isSuccess}
+              className="flex items-center gap-1.5 font-mono text-xs border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300"
+            >
+              {mergePR.isSuccess ? (
+                <><CheckCircle2 className="h-3.5 w-3.5" /> Merged</>
+              ) : (
+                <><GitMerge className="h-3.5 w-3.5" /> Merge PR</>
+              )}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (job.pullRequest?.id) {
+                    mergePR.mutate({ pullRequestId: job.pullRequest.id });
+                  }
+                  setMergeConfirm(false);
+                }}
+                disabled={mergePR.isPending || !job.pullRequest?.id}
+                className="flex items-center gap-1.5 font-mono text-xs bg-purple-600 hover:bg-purple-700"
+              >
+                {mergePR.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <GitMerge className="h-3.5 w-3.5" />
+                )}
+                Confirm Merge
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMergeConfirm(false)}
+                className="font-mono text-xs"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
 
-          <button
-            onClick={() => setActiveTab('graph')}
-            className={`pb-3 font-semibold flex items-center space-x-2 transition ${
-              activeTab === 'graph'
-                ? 'border-b-2 border-indigo-500 text-indigo-400'
-                : 'text-gray-400 hover:text-white'
+          {/* Make Post */}
+          <Button
+            size="sm"
+            onClick={() => setShowSocialPanel((v) => !v)}
+            className={`flex items-center gap-1.5 font-mono text-xs ${
+              showSocialPanel
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'bg-gradient-to-r from-primary/90 to-[#0A66C2] hover:opacity-90'
             }`}
+            variant={showSocialPanel ? 'outline' : 'default'}
           >
-            <Layers className="w-4 h-4" />
-            <span>Codebase Dependency Graph</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`pb-3 font-semibold flex items-center space-x-2 transition ${
-              activeTab === 'timeline'
-                ? 'border-b-2 border-indigo-500 text-indigo-400'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span>Pipeline Audit Log</span>
-          </button>
+            <PenSquare className="h-3.5 w-3.5" />
+            {showSocialPanel ? 'Hide Posts' : 'Make Post'}
+          </Button>
         </div>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'visual' && (
-        <ReviewVisualSummary
-          prTitle="Add OAuth refresh token rotation and session revocation"
-          author="dev-alex"
-          riskLevel="critical"
-          riskScore={82}
-        />
+      {/* Merge feedback */}
+      {mergePR.isSuccess && (
+        <div className="flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 text-sm text-purple-400 font-mono">
+          <CheckCircle2 className="h-4 w-4" />
+          PR merged successfully!
+        </div>
       )}
-
-      {activeTab === 'findings' && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-            <span>Detailed Code Findings</span>
-            <span className="text-xs font-normal text-gray-400">({findings.length} issues)</span>
-          </h2>
-
-          {findings.map((f) => (
-            <div
-              key={f.id}
-              className={`glass-panel p-5 rounded-xl border ${
-                f.status === 'resolved'
-                  ? 'border-emerald-500/30 opacity-70'
-                  : 'border-gray-800'
-              } transition space-y-4`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center space-x-2">
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                      f.severity === 'critical'
-                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    }`}
-                  >
-                    {f.severity}
-                  </span>
-                  <span className="text-xs text-gray-400 capitalize">Category: {f.category}</span>
-                  <span className="text-gray-600">•</span>
-                  <span className="text-xs font-mono text-indigo-300 flex items-center space-x-1">
-                    <FileCode className="w-3.5 h-3.5 inline mr-1" />
-                    {f.file}:{f.line}
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  {f.status === 'resolved' ? (
-                    <span className="text-xs text-emerald-400 flex items-center space-x-1 font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Resolved</span>
-                    </span>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => handleStatusChange(f.id, 'resolved')}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium border border-emerald-500/20 flex items-center space-x-1 transition"
-                      >
-                        <Check className="w-3 h-3" />
-                        <span>Resolve</span>
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(f.id, 'dismissed')}
-                        className="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-medium flex items-center space-x-1 transition"
-                      >
-                        <X className="w-3 h-3" />
-                        <span>Dismiss</span>
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <h3 className="text-base font-semibold text-white">{f.title}</h3>
-              <p className="text-sm text-gray-300 leading-relaxed">{f.message}</p>
-
-              {f.suggestion && (
-                <div className="rounded-lg bg-black/60 p-3 border border-gray-800 font-mono text-xs text-emerald-300 overflow-x-auto">
-                  <div className="text-gray-500 mb-1 text-[11px] font-sans font-medium">Suggested Fix (Automated Diff):</div>
-                  <pre>{f.suggestion}</pre>
-                </div>
-              )}
-            </div>
-          ))}
+      {mergePR.isError && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive font-mono">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            Merge failed:{' '}
+            {(mergePR.error as any)?.response?.data?.error?.message ||
+              mergePR.error?.message ||
+              'Unknown error'}
+          </span>
         </div>
       )}
 
-      {activeTab === 'graph' && (
-        <CodeGraphView prNumber={42} activeFile="src/services/auth.service.js" />
+      {/* Social Post Panel */}
+      {showSocialPanel && job.pullRequest?.id && (
+        <div className="border-t border-border pt-6">
+          <SocialPostPanel pullRequestId={job.pullRequest.id} />
+        </div>
       )}
 
-      {activeTab === 'timeline' && (
-        <div className="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6">
-          <h3 className="font-bold text-lg text-white">Review Pipeline Execution Stepper</h3>
-          <div className="relative pl-6 border-l-2 border-indigo-500/30 space-y-6">
-            {timelineEvents.map((evt, idx) => (
-              <div key={idx} className="relative">
-                <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-indigo-600 border-4 border-background" />
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm text-white">{evt.title}</h4>
-                  <span className="text-xs font-mono text-gray-500">{evt.time}</span>
+      {/* Quick Jump Bar for Multiple Runs */}
+      {runs.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
+          <span className="text-muted-foreground uppercase tracking-wider text-[11px] font-semibold shrink-0">
+            Jump to Run:
+          </span>
+          {runs.map((run, idx) => {
+            const runNum = runs.length - idx;
+            const isLatest = idx === 0;
+            const isCurrentUrl = run.id === params.id;
+            const webhookEvt = run.events?.find((e) => e.step === 'webhook_received');
+            const sha =
+              (webhookEvt?.detail as Record<string, unknown> | null)?.headSha as string | undefined ||
+              job.pullRequest?.headSha;
+
+            return (
+              <a
+                key={run.id}
+                href={`#run-${run.id}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all shrink-0 ${
+                  isCurrentUrl
+                    ? 'border-primary bg-primary/10 text-primary font-medium shadow-sm'
+                    : 'border-border bg-card hover:bg-accent/60 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span>Run #{runNum}</span>
+                {isLatest && (
+                  <span className="rounded bg-primary/20 px-1 py-0.2 text-[10px] text-primary">
+                    Latest
+                  </span>
+                )}
+                {sha && (
+                  <span className="text-[10px] opacity-70">({sha.slice(0, 7)})</span>
+                )}
+              </a>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Runs Timeline - Scrollable List of All Review Events */}
+      <div className="flex flex-col gap-10">
+        {runs.map((run, idx) => {
+          const runNum = runs.length - idx;
+          const isLatest = idx === 0;
+          const isCurrentUrl = run.id === params.id;
+          const inFlight = run.status !== 'COMPLETED' && run.status !== 'FAILED';
+
+          const webhookEvt = run.events?.find((e) => e.step === 'webhook_received');
+          const detail = webhookEvt?.detail as Record<string, unknown> | null;
+          const action = (detail?.action as string) || (runNum === 1 ? 'opened' : 'synchronize');
+          const sha = (detail?.headSha as string) || job.pullRequest?.headSha;
+          const findings = run.summaryComment?.findings || [];
+
+          const totalDuration =
+            run.startedAt && run.completedAt
+              ? formatDuration(new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime())
+              : null;
+
+          return (
+            <div
+              key={run.id}
+              id={`run-${run.id}`}
+              className={`flex flex-col gap-6 rounded-xl border p-6 bg-card/60 transition-all ${
+                isCurrentUrl
+                  ? 'border-primary/50 shadow-md ring-1 ring-primary/20'
+                  : 'border-border/80'
+              }`}
+            >
+              {/* Run Card Header */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-4">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="font-mono text-sm font-bold text-foreground">
+                      Run #{runNum}
+                    </span>
+                    {isLatest && (
+                      <span className="rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 text-[10px] font-mono text-primary font-semibold">
+                        Latest Run
+                      </span>
+                    )}
+                    {sha && (
+                      <span className="inline-flex items-center gap-1 font-mono text-xs bg-muted/80 border border-border/70 px-2 py-0.5 rounded text-foreground">
+                        <GitCommit className="h-3 w-3 text-primary" />
+                        Commit: {sha.slice(0, 7)}
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 font-mono text-xs bg-secondary/80 border border-border/60 px-2 py-0.5 rounded text-muted-foreground uppercase tracking-wide text-[10px]">
+                      <GitPullRequest className="h-3 w-3" />
+                      {action === 'opened' ? 'PR Opened' : action === 'synchronize' ? 'New Commit Pushed' : action}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(run.createdAt).toLocaleString()}
+                    </span>
+                    {totalDuration && (
+                      <>
+                        <span>&bull;</span>
+                        <span className="text-foreground font-medium">
+                          Duration: {totalDuration}
+                        </span>
+                      </>
+                    )}
+                    {run.attemptCount > 1 && (
+                      <>
+                        <span>&bull;</span>
+                        <span className="inline-flex items-center gap-0.5">
+                          <Hash className="h-3 w-3" />
+                          Attempt {run.attemptCount}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{evt.desc}</p>
+
+                {/* Status and Single-Run Controls */}
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <StatusBadge status={run.status} />
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => retryJob.mutate(run.id)}
+                    disabled={retryJob.isPending}
+                    title="Retry this specific run"
+                    className="flex items-center gap-1 font-mono text-xs h-8"
+                  >
+                    <RotateCw className={`h-3 w-3 ${retryJob.isPending ? 'animate-spin' : ''}`} />
+                    Retry
+                  </Button>
+
+                  {inFlight && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cancelJob.mutate(run.id)}
+                      disabled={cancelJob.isPending}
+                      className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-destructive h-8"
+                    >
+                      <Ban className="h-3 w-3" />
+                      Cancel
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(run.id)}
+                    disabled={deleteJob.isPending}
+                    className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-destructive h-8 px-2"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-            ))}
-          </div>
+
+              {/* Visual Stepper */}
+              <PipelineStepper status={run.status} />
+
+              {/* Error Callout Banner if failed */}
+              {run.error && (
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive shadow-sm">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">Review Run #{runNum} Failed</p>
+                      <p className="font-mono text-xs mt-1 opacity-90">{run.error}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => retryJob.mutate(run.id)}
+                    disabled={retryJob.isPending}
+                    className="shrink-0 text-xs font-mono"
+                  >
+                    Retry Now
+                  </Button>
+                </div>
+              )}
+
+              {/* Pipeline Activity Log for this run */}
+              {run.events && run.events.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+                    Pipeline Activity &bull; Run #{runNum}
+                  </h2>
+                  <PipelineActivityLog
+                    events={run.events}
+                    startedAt={run.startedAt}
+                    completedAt={run.completedAt}
+                  />
+                </div>
+              )}
+
+              {/* Findings for this run */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+                    Findings &bull; Run #{runNum} ({findings.length})
+                  </h2>
+                </div>
+
+                {findings.length > 0 ? (
+                  <FindingsList findings={findings} />
+                ) : run.status === 'COMPLETED' ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-diff-add/30 bg-diff-add/5 p-4 text-sm text-diff-add font-mono">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>Clean code! No issues or findings detected in this run.</span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border bg-card/40 p-4 text-xs font-mono text-muted-foreground">
+                    Review is still in progress...
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Conversation Thread (Shared for the PR) */}
+      {job.conversationMessages && job.conversationMessages.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-border pt-8">
+          <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+            Conversation Thread
+          </h2>
+          <ConversationThread messages={job.conversationMessages} />
         </div>
       )}
     </div>

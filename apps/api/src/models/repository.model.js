@@ -83,6 +83,56 @@ module.exports = (sequelize) => {
       },
       field: 'review_config',
     },
+    indexStatus: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'NOT_INDEXED',
+      field: 'index_status',
+    },
+    indexedCommitSha: {
+      type: DataTypes.STRING(40),
+      allowNull: true,
+      field: 'indexed_commit_sha',
+    },
+    indexedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'indexed_at',
+    },
+    indexError: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'index_error',
+    },
+    fileCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'file_count',
+    },
+    symbolCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'symbol_count',
+    },
+    aiReviewEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: 'ai_review_enabled',
+    },
+    reviewLevel: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: 'balanced',
+      field: 'review_level',
+    },
+    customVoice: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'custom_voice',
+    },
     status: {
       type: DataTypes.STRING(20),
       defaultValue: 'active', // 'active', 'paused', 'archived'

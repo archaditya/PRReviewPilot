@@ -4,14 +4,17 @@ const helmet = require('helmet');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const pinoHttp = require('pino-http');
+const { serve } = require('inngest/express');
 const config = require('./config');
 const logger = require('./utils/logger');
 const { errorHandler } = require('./middlewares/error.middleware');
+const { inngest, functions } = require('./jobs');
 
 // Route imports
 const authRoutes = require('./routes/auth.routes');
 const repoRoutes = require('./routes/repo.routes');
 const reviewRoutes = require('./routes/review.routes');
+const reviewJobsRoutes = require('./routes/review-jobs.routes');
 const webhookRoutes = require('./routes/webhook.routes');
 const adminRoutes = require('./routes/admin.routes');
 const integrationRoutes = require('./routes/integration.routes');
@@ -48,9 +51,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/repositories', repoRoutes);
 app.use('/api/repos', repoRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/review-jobs', reviewJobsRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/integrations', integrationRoutes);
+
+// Inngest endpoint for background indexing and review orchestration
+app.use('/api/inngest', serve({ client: inngest, functions }));
 
 // Global Error Handler
 app.use(errorHandler);
