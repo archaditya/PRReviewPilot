@@ -9,11 +9,15 @@ import {
   ArrowRight,
   Ban,
   CheckCircle2,
+  ChevronRight,
   Clock,
+  Copy,
   Cpu,
   Database,
   ExternalLink,
+  Eye,
   Flame,
+  FolderGit2,
   GitBranch,
   GitCommit,
   GitFork,
@@ -35,6 +39,7 @@ import {
   UserCheck,
   UserPlus,
   Users,
+  UserX,
   Wifi,
   X,
   XCircle,
@@ -116,7 +121,7 @@ interface ReviewJobItem {
   error?: string;
   createdAt: string;
   repository?: { id: string; name: string; providerFullName: string };
-  pullRequest?: { id: string; number: number; title: string; sourceBranch: string; targetBranch: string };
+  pullRequest?: { id: string; prNumber?: number; number?: number; title: string; headBranch?: string; baseBranch?: string };
 }
 
 interface RepoIndexItem {
@@ -137,16 +142,67 @@ interface AdminUser {
   name: string;
   email: string;
   role: 'superadmin' | 'admin' | 'user';
-  status: 'active' | 'suspended' | 'deactivated';
+  status: 'active' | 'suspended' | 'blocked' | 'deactivated';
   githubUsername?: string;
+  githubUserId?: string;
   bitbucketUsername?: string;
+  avatarUrl?: string;
   usage?: { review_count?: number; total_tokens?: number; cost_usd?: number };
   createdAt: string;
   lastLoginAt?: string;
   ownedOrganizations?: Array<{ id: string; name: string; features?: { max_reviews_per_month?: number } }>;
 }
 
+interface UserDetailedData {
+  user: AdminUser;
+  installations: Array<{
+    id: string;
+    provider: string;
+    providerInstallationId: string;
+    accountLogin: string;
+    accountType: string;
+    status: string;
+    createdAt: string;
+  }>;
+  repositories: Array<{
+    id: string;
+    name: string;
+    providerFullName: string;
+    provider: string;
+    defaultBranch: string;
+    isActive: boolean;
+    indexStatus: 'INDEXED' | 'INDEXING' | 'FAILED' | 'NOT_INDEXED';
+    fileCount: number;
+    symbolCount: number;
+    indexedAt?: string;
+    indexError?: string;
+    createdAt: string;
+  }>;
+  pullRequests: Array<{
+    id: string;
+    repositoryId: string;
+    prNumber: number;
+    title: string;
+    headBranch: string;
+    baseBranch: string;
+    status: string;
+    createdAt: string;
+  }>;
+  reviewJobs: Array<{
+    id: string;
+    repositoryId: string;
+    status: string;
+    trigger: string;
+    tokensUsed: number;
+    estimatedCostUsd: number;
+    durationMs: number;
+    error?: string;
+    createdAt: string;
+  }>;
+}
+
 type TabType = 'overview' | 'monitoring' | 'jobs' | 'config' | 'users' | 'controls';
+type UserDetailSubTab = 'overview' | 'repos' | 'prs' | 'restrictions' | 'danger';
 
 function AdminConsoleInner() {
   const searchParams = useSearchParams();
@@ -168,6 +224,7 @@ function AdminConsoleInner() {
   const [reviewJobs, setReviewJobs] = useState<ReviewJobItem[]>([]);
   const [repoIndexing, setRepoIndexing] = useState<RepoIndexItem[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser | null>(null);
 
   // Sub-states & modals
   const [searchQuery, setSearchQuery] = useState('');
@@ -180,16 +237,26 @@ function AdminConsoleInner() {
   const [newPassword, setNewPassword] = useState('');
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // User Detailed View Inspector State
+  const [inspectingUser, setInspectingUser] = useState<AdminUser | null>(null);
+  const [userDetailsLoading, setUserDetailsLoading] = useState(false);
+  const [userDetails, setUserDetails] = useState<UserDetailedData | null>(null);
+  const [detailSubTab, setDetailSubTab] = useState<UserDetailSubTab>('overview');
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
   // Fetch all initial admin data
   const loadAllAdminData = async () => {
     setLoading(true);
     try {
-      const [statsRes, healthRes, configRes, jobsRes, usersRes] = await Promise.all([
+      const [statsRes, healthRes, configRes, jobsRes, usersRes, meRes] = await Promise.all([
         fetch('/api/admin/stats', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
         fetch('/api/admin/health', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
         fetch('/api/admin/config', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
         fetch('/api/admin/jobs', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
         fetch('/api/admin/users', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/auth/me', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)),
       ]);
 
       if (statsRes?.success) setStats(statsRes.stats);
@@ -203,6 +270,7 @@ function AdminConsoleInner() {
         setRepoIndexing(jobsRes.repoIndexing || []);
       }
       if (usersRes?.success) setUsers(usersRes.users || []);
+      if (meRes?.success && meRes.user) setCurrentAdminUser(meRes.user);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
     } finally {
@@ -219,7 +287,29 @@ function AdminConsoleInner() {
     setTimeout(() => setActionNotice(null), 5000);
   };
 
-  // 1. Service Connection Test
+  // Inspect User Details Drawer
+  const handleInspectUser = async (user: AdminUser) => {
+    setInspectingUser(user);
+    setUserDetailsLoading(true);
+    setUserDetails(null);
+    setDetailSubTab('overview');
+    setDeleteConfirmEmail('');
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/details`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setUserDetails(data);
+      } else {
+        showNotice('error', data.error || 'Failed to load user details');
+      }
+    } catch (err: any) {
+      showNotice('error', err.message);
+    } finally {
+      setUserDetailsLoading(false);
+    }
+  };
+
+  // Service Connection Test
   const handleTestService = async (service: 'github' | 'neo4j' | 'redis' | 'ai' | 'indexer') => {
     setTestingService(service);
     setTestResult(null);
@@ -246,7 +336,7 @@ function AdminConsoleInner() {
     }
   };
 
-  // 2. Retry a review job
+  // Retry a review job
   const handleRetryJob = async (jobId: string) => {
     setRetryingJobId(jobId);
     try {
@@ -257,7 +347,6 @@ function AdminConsoleInner() {
       const data = await res.json();
       if (data.success) {
         showNotice('success', `Job ${jobId.substring(0, 8)} queued for retry`);
-        // Update local state
         setReviewJobs((prev) =>
           prev.map((j) => (j.id === jobId ? { ...j, status: 'pending', error: undefined } : j))
         );
@@ -271,29 +360,37 @@ function AdminConsoleInner() {
     }
   };
 
-  // 3. User status toggle
-  const handleToggleUserStatus = async (user: AdminUser) => {
-    const nextStatus = user.status === 'active' ? 'suspended' : 'active';
+  // User status toggle / killswitch
+  const handleSetUserStatus = async (userId: string, newStatus: 'active' | 'suspended' | 'blocked') => {
+    setActionInProgress(userId);
     try {
-      const res = await fetch(`/api/admin/users/${user.id}/status`, {
+      const res = await fetch(`/api/admin/users/${userId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ status: newStatus }),
         credentials: 'include',
       });
       const data = await res.json();
       if (data.success) {
-        setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u)));
-        showNotice('success', `User ${user.email} is now ${nextStatus}`);
+        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: newStatus } : u)));
+        if (inspectingUser && inspectingUser.id === userId) {
+          setInspectingUser({ ...inspectingUser, status: newStatus });
+        }
+        if (userDetails && userDetails.user.id === userId) {
+          setUserDetails({ ...userDetails, user: { ...userDetails.user, status: newStatus } });
+        }
+        showNotice('success', `User account status updated to ${newStatus.toUpperCase()}`);
       } else {
         showNotice('error', data.error || 'Failed to update user status');
       }
     } catch (err: any) {
       showNotice('error', err.message);
+    } finally {
+      setActionInProgress(null);
     }
   };
 
-  // 4. User role change
+  // User role change
   const handleChangeRole = async (user: AdminUser, newRole: 'user' | 'admin' | 'superadmin') => {
     try {
       const res = await fetch(`/api/admin/users/${user.id}/role`, {
@@ -305,6 +402,9 @@ function AdminConsoleInner() {
       const data = await res.json();
       if (data.success) {
         setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)));
+        if (inspectingUser && inspectingUser.id === user.id) {
+          setInspectingUser({ ...inspectingUser, role: newRole });
+        }
         showNotice('success', `Role for ${user.email} updated to ${newRole}`);
       } else {
         showNotice('error', data.error || 'Failed to update role');
@@ -314,7 +414,38 @@ function AdminConsoleInner() {
     }
   };
 
-  // 5. Password reset
+  // Delete User with edge cases and safety checks
+  const handleDeleteUser = async () => {
+    if (!inspectingUser) return;
+    if (deleteConfirmEmail.trim().toLowerCase() !== inspectingUser.email.toLowerCase()) {
+      showNotice('error', 'Confirmation email does not match.');
+      return;
+    }
+
+    setDeletingUser(true);
+    try {
+      const res = await fetch(`/api/admin/users/${inspectingUser.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', data.message || `User ${inspectingUser.email} has been permanently deleted.`);
+        setUsers((prev) => prev.filter((u) => u.id !== inspectingUser.id));
+        setInspectingUser(null);
+        setUserDetails(null);
+        setDeleteConfirmEmail('');
+      } else {
+        showNotice('error', data.error || 'Failed to delete user');
+      }
+    } catch (err: any) {
+      showNotice('error', err.message);
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
+  // Password reset
   const handleSavePassword = async () => {
     if (!selectedUserForPassword || !newPassword) return;
     try {
@@ -337,7 +468,7 @@ function AdminConsoleInner() {
     }
   };
 
-  // 6. Quota update
+  // Quota update
   const handleSaveQuota = async () => {
     if (!selectedUserForQuota) return;
     try {
@@ -351,6 +482,10 @@ function AdminConsoleInner() {
       if (data.success) {
         showNotice('success', `Quota updated to ${newQuota} for ${selectedUserForQuota.email}`);
         setSelectedUserForQuota(null);
+        // Refresh detail view if inspecting
+        if (userDetails && userDetails.user.id === selectedUserForQuota.id) {
+          handleInspectUser(selectedUserForQuota);
+        }
       } else {
         showNotice('error', data.error || 'Failed to update quota');
       }
@@ -359,7 +494,59 @@ function AdminConsoleInner() {
     }
   };
 
-  // 7. Flush cache
+  // Trigger Reindex on user repo from detail drawer
+  const handleTriggerRepoReindex = async (repoId: string) => {
+    try {
+      const res = await fetch(`/api/repositories/${repoId}/reindex`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', 'Repository indexing triggered directly');
+        if (userDetails) {
+          setUserDetails({
+            ...userDetails,
+            repositories: userDetails.repositories.map((r) =>
+              r.id === repoId ? { ...r, indexStatus: 'INDEXING' } : r
+            ),
+          });
+        }
+      } else {
+        showNotice('error', data.error || 'Failed to trigger indexing');
+      }
+    } catch (err: any) {
+      showNotice('error', err.message);
+    }
+  };
+
+  // Reset stuck index state on user repo
+  const handleResetRepoIndex = async (repoId: string) => {
+    try {
+      const res = await fetch(`/api/repositories/${repoId}/reset-index`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', 'Repository index status reset to NOT_INDEXED');
+        if (userDetails) {
+          setUserDetails({
+            ...userDetails,
+            repositories: userDetails.repositories.map((r) =>
+              r.id === repoId ? { ...r, indexStatus: 'NOT_INDEXED', indexError: undefined } : r
+            ),
+          });
+        }
+      } else {
+        showNotice('error', data.error || 'Failed to reset index');
+      }
+    } catch (err: any) {
+      showNotice('error', err.message);
+    }
+  };
+
+  // Flush cache
   const handleFlushCache = async () => {
     if (!confirm('Flush all keys from Redis cache?')) return;
     try {
@@ -382,7 +569,8 @@ function AdminConsoleInner() {
     (u) =>
       u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.role?.toLowerCase().includes(searchQuery.toLowerCase())
+      u.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.status?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -403,7 +591,7 @@ function AdminConsoleInner() {
             </span>
           </div>
           <p className="text-xs text-neutral-400 max-w-2xl">
-            Centralized orchestration hub for system health, Neo4j AST knowledge graph, AI inference tokens, background queues, and access control policies.
+            Centralized orchestration hub for system health, Neo4j AST knowledge graph, AI inference tokens, background queues, and user access policies.
           </p>
         </div>
 
@@ -514,7 +702,7 @@ function AdminConsoleInner() {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* 1. PostgreSQL */}
+              {/* PostgreSQL */}
               <div className="p-5 rounded-xl border border-white/10 bg-[#0c0e12] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -540,7 +728,7 @@ function AdminConsoleInner() {
                 </div>
               </div>
 
-              {/* 2. Neo4j */}
+              {/* Neo4j */}
               <div className="p-5 rounded-xl border border-white/10 bg-[#0c0e12] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -566,7 +754,7 @@ function AdminConsoleInner() {
                 </div>
               </div>
 
-              {/* 3. Redis */}
+              {/* Redis */}
               <div className="p-5 rounded-xl border border-white/10 bg-[#0c0e12] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -592,7 +780,7 @@ function AdminConsoleInner() {
                 </div>
               </div>
 
-              {/* 4. AI Microservice */}
+              {/* AI Microservice */}
               <div className="p-5 rounded-xl border border-white/10 bg-[#0c0e12] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -618,7 +806,7 @@ function AdminConsoleInner() {
                 </div>
               </div>
 
-              {/* 5. Tree-sitter Indexer */}
+              {/* Tree-sitter Indexer */}
               <div className="p-5 rounded-xl border border-white/10 bg-[#0c0e12] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -644,7 +832,7 @@ function AdminConsoleInner() {
                 </div>
               </div>
 
-              {/* 6. Node.js API Host */}
+              {/* Node.js API Host */}
               <div className="p-5 rounded-xl border border-white/10 bg-[#0c0e12] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -718,7 +906,7 @@ function AdminConsoleInner() {
                         <td className="py-3 px-3 text-neutral-300">
                           {j.pullRequest ? (
                             <span>
-                              #{j.pullRequest.number}: {j.pullRequest.title.substring(0, 25)}...
+                              #{j.pullRequest.prNumber || j.pullRequest.number}: {j.pullRequest.title?.substring(0, 25)}...
                             </span>
                           ) : (
                             <span className="text-neutral-500">Direct execution</span>
@@ -1017,7 +1205,7 @@ function AdminConsoleInner() {
                   <span>Platform Identity & Access Control Directory</span>
                 </h2>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Manage roles, toggle active/suspended killswitches, override PR quotas, and reset credentials.
+                  Click any user to inspect connected repositories, pull requests, usage logs, or administer restrictions.
                 </p>
               </div>
 
@@ -1038,7 +1226,7 @@ function AdminConsoleInner() {
               <table className="w-full text-left text-xs font-mono">
                 <thead>
                   <tr className="border-b border-white/10 text-neutral-400 text-[11px]">
-                    <th className="py-2.5 px-3">User</th>
+                    <th className="py-2.5 px-3">User & Identity</th>
                     <th className="py-2.5 px-3">Role</th>
                     <th className="py-2.5 px-3">Status</th>
                     <th className="py-2.5 px-3">Monthly Quota</th>
@@ -1050,10 +1238,28 @@ function AdminConsoleInner() {
                   {filteredUsers.map((u) => {
                     const quota = u.ownedOrganizations?.[0]?.features?.max_reviews_per_month ?? 100;
                     return (
-                      <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                      <tr
+                        key={u.id}
+                        className="hover:bg-white/[0.03] transition-colors group cursor-pointer"
+                        onClick={(e) => {
+                          // Ignore if clicking action buttons/selects
+                          if ((e.target as HTMLElement).closest('button, select')) return;
+                          handleInspectUser(u);
+                        }}
+                      >
                         <td className="py-3 px-3">
-                          <div className="font-semibold text-white">{u.name || 'User'}</div>
-                          <div className="text-[11px] text-neutral-500">{u.email}</div>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center font-bold text-white text-xs">
+                              {u.name?.slice(0, 1).toUpperCase() || u.email?.slice(0, 1).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-white group-hover:text-orange-400 transition-colors flex items-center gap-1.5">
+                                <span>{u.name || 'User'}</span>
+                                <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-orange-400" />
+                              </div>
+                              <div className="text-[11px] text-neutral-500">{u.email}</div>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-3">
                           <select
@@ -1071,7 +1277,9 @@ function AdminConsoleInner() {
                             className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                               u.status === 'active'
                                 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                : u.status === 'blocked'
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                                : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                             }`}
                           >
                             {u.status}
@@ -1083,29 +1291,28 @@ function AdminConsoleInner() {
                         <td className="py-3 px-3 text-neutral-300">{u.usage?.review_count ?? 0}</td>
                         <td className="py-3 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Toggle Suspend */}
+                            {/* Inspect User Deep View */}
                             <button
-                              onClick={() => handleToggleUserStatus(u)}
+                              onClick={() => handleInspectUser(u)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-white/10 hover:border-orange-500/40 bg-white/5 hover:bg-orange-500/10 text-neutral-300 hover:text-orange-400 font-mono text-[11px] transition-colors"
+                              title="Inspect connected repos, PRs, and user diagnostics"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Inspect</span>
+                            </button>
+
+                            {/* Killswitch Toggle */}
+                            <button
+                              onClick={() => handleSetUserStatus(u.id, u.status === 'active' ? 'blocked' : 'active')}
+                              disabled={actionInProgress === u.id}
                               className={`p-1.5 rounded border transition-colors ${
                                 u.status === 'active'
                                   ? 'border-red-500/20 text-neutral-400 hover:text-red-400 hover:bg-red-500/10'
                                   : 'border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10'
                               }`}
-                              title={u.status === 'active' ? 'Suspend User' : 'Activate User'}
+                              title={u.status === 'active' ? 'Block User Account' : 'Reactivate User Account'}
                             >
                               <Ban className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Change Quota */}
-                            <button
-                              onClick={() => {
-                                setSelectedUserForQuota(u);
-                                setNewQuota(quota);
-                              }}
-                              className="p-1.5 rounded border border-white/10 text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
-                              title="Edit Monthly Quota"
-                            >
-                              <Settings className="w-3.5 h-3.5" />
                             </button>
 
                             {/* Reset Password */}
@@ -1163,7 +1370,7 @@ function AdminConsoleInner() {
                     disabled={testingService === test.id}
                     className="w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border border-white/10 hover:border-orange-500/40 bg-white/5 hover:bg-orange-500/10 text-neutral-200 hover:text-orange-400 transition-colors disabled:opacity-50"
                   >
-                    <Play className={`w-3 h-3 ${testingService === test.id ? 'animate-spin' : ''}`} />
+                    <Play className={`w-3.5 h-3.5 ${testingService === test.id ? 'animate-spin' : ''}`} />
                     <span>Run Diagnostic</span>
                   </button>
                 </div>
@@ -1188,7 +1395,366 @@ function AdminConsoleInner() {
         </div>
       )}
 
-      {/* ── Modal: Quota Override ── */}
+      {/* ──────────────── MODAL / DRAWER: USER DEEP INSPECTOR & CONTROLS ──────────────── */}
+      {inspectingUser && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border border-white/15 bg-[#0c0e12] shadow-2xl overflow-hidden">
+            {/* Inspector Header */}
+            <div className="p-5 sm:p-6 border-b border-white/10 bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F6821F]/20 to-orange-600/10 border border-[#F6821F]/30 flex items-center justify-center text-lg font-bold text-[#F6821F] font-mono">
+                  {inspectingUser.name?.slice(0, 1).toUpperCase() || inspectingUser.email?.slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-mono text-base sm:text-lg font-bold text-white">
+                      {inspectingUser.name || 'User Profile'}
+                    </h3>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold ${
+                        inspectingUser.status === 'active'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : inspectingUser.status === 'blocked'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      }`}
+                    >
+                      {inspectingUser.status}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-white/5 border border-white/10 text-orange-400">
+                      {inspectingUser.role}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 font-mono mt-0.5 flex items-center gap-2">
+                    <span>{inspectingUser.email}</span>
+                    <span className="text-neutral-600">•</span>
+                    <span className="text-neutral-500 text-[11px]">ID: {inspectingUser.id}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setInspectingUser(null)}
+                  className="p-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 text-neutral-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Sub-Navigation Tabs */}
+            <div className="flex items-center gap-1 px-6 border-b border-white/10 bg-black/20 overflow-x-auto">
+              {[
+                { id: 'overview', label: 'Overview & Diagnostics' },
+                { id: 'repos', label: `Connected Repos (${userDetails?.repositories?.length ?? 0})` },
+                { id: 'prs', label: `PRs & Reviews (${userDetails?.reviewJobs?.length ?? 0})` },
+                { id: 'restrictions', label: 'Restrictions & Quotas' },
+                { id: 'danger', label: 'Account Deletion' },
+              ].map((subTab) => (
+                <button
+                  key={subTab.id}
+                  onClick={() => setDetailSubTab(subTab.id as UserDetailSubTab)}
+                  className={`py-3 px-3.5 text-xs font-mono font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    detailSubTab === subTab.id
+                      ? 'border-[#F6821F] text-[#F6821F]'
+                      : 'border-transparent text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  {subTab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Inspector Body Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {userDetailsLoading ? (
+                <div className="py-16 text-center space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-orange-400 mx-auto" />
+                  <p className="text-xs font-mono text-neutral-400">Loading user repositories and review pipeline state...</p>
+                </div>
+              ) : (
+                <>
+                  {/* SUBTAB: OVERVIEW */}
+                  {detailSubTab === 'overview' && (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-xl border border-white/10 bg-black/40 space-y-1">
+                          <span className="text-[11px] font-mono text-neutral-500 uppercase">Total Tokens Billed</span>
+                          <div className="text-xl font-bold font-mono text-white">
+                            {userDetails?.user?.usage?.total_tokens ?? 0}
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-xl border border-white/10 bg-black/40 space-y-1">
+                          <span className="text-[11px] font-mono text-neutral-500 uppercase">PR Reviews Executed</span>
+                          <div className="text-xl font-bold font-mono text-white">
+                            {userDetails?.user?.usage?.review_count ?? 0}
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-xl border border-white/10 bg-black/40 space-y-1">
+                          <span className="text-[11px] font-mono text-neutral-500 uppercase">Estimated OpenAI Spend</span>
+                          <div className="text-xl font-bold font-mono text-emerald-400">
+                            ${userDetails?.user?.usage?.cost_usd ?? 0.0}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-5 rounded-xl border border-white/10 bg-black/40 space-y-3 text-xs font-mono">
+                        <h4 className="font-semibold text-white uppercase text-[11px] tracking-wider text-orange-400">
+                          Identity & Authentication Metadata
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-neutral-400">
+                          <div>
+                            <span className="text-neutral-500 block">GitHub Username:</span>
+                            <span className="text-white">{userDetails?.user?.githubUsername || 'Not linked'}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 block">Bitbucket Username:</span>
+                            <span className="text-white">{userDetails?.user?.bitbucketUsername || 'Not linked'}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 block">Account Created:</span>
+                            <span className="text-white">{new Date(inspectingUser.createdAt).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-neutral-500 block">Last Active Session:</span>
+                            <span className="text-white">
+                              {inspectingUser.lastLoginAt ? new Date(inspectingUser.lastLoginAt).toLocaleString() : 'Never'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Killswitch Controls */}
+                      <div className="p-5 rounded-xl border border-white/10 bg-black/40 space-y-3">
+                        <h4 className="font-mono text-xs font-semibold text-white">Direct Account Killswitch Controls</h4>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <button
+                            onClick={() => handleSetUserStatus(inspectingUser.id, 'active')}
+                            disabled={inspectingUser.status === 'active'}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 disabled:opacity-40 transition-colors"
+                          >
+                            Set Active
+                          </button>
+                          <button
+                            onClick={() => handleSetUserStatus(inspectingUser.id, 'suspended')}
+                            disabled={inspectingUser.status === 'suspended'}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 disabled:opacity-40 transition-colors"
+                          >
+                            Suspend Access
+                          </button>
+                          <button
+                            onClick={() => handleSetUserStatus(inspectingUser.id, 'blocked')}
+                            disabled={inspectingUser.status === 'blocked'}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 disabled:opacity-40 transition-colors"
+                          >
+                            Hard Block & Revoke Sessions
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB: CONNECTED REPOSITORIES */}
+                  {detailSubTab === 'repos' && (
+                    <div className="space-y-4">
+                      {userDetails?.repositories?.length === 0 ? (
+                        <div className="py-12 text-center text-xs font-mono text-neutral-500">
+                          This user has not connected any repositories yet.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs font-mono">
+                            <thead>
+                              <tr className="border-b border-white/10 text-neutral-400 text-[11px]">
+                                <th className="py-2.5 px-3">Repository</th>
+                                <th className="py-2.5 px-3">Branch</th>
+                                <th className="py-2.5 px-3">Index Status</th>
+                                <th className="py-2.5 px-3">Files / Symbols</th>
+                                <th className="py-2.5 px-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {userDetails?.repositories?.map((repo) => (
+                                <tr key={repo.id} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="py-3 px-3">
+                                    <div className="font-semibold text-white">{repo.providerFullName || repo.name}</div>
+                                    <div className="text-[10px] text-neutral-500">{repo.provider}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-neutral-400">{repo.defaultBranch || 'main'}</td>
+                                  <td className="py-3 px-3">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                        repo.indexStatus === 'INDEXED'
+                                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                          : repo.indexStatus === 'INDEXING'
+                                          ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30 animate-pulse'
+                                          : repo.indexStatus === 'FAILED'
+                                          ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                          : 'bg-neutral-500/15 text-neutral-400 border border-neutral-500/30'
+                                      }`}
+                                    >
+                                      {repo.indexStatus}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-neutral-300">
+                                    {repo.fileCount ?? 0} files / {repo.symbolCount ?? 0} symbols
+                                  </td>
+                                  <td className="py-3 px-3 text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => handleTriggerRepoReindex(repo.id)}
+                                        className="px-2.5 py-1 rounded border border-white/10 hover:border-orange-500/40 bg-white/5 hover:bg-orange-500/10 text-orange-300 transition-colors"
+                                        title="Trigger Reindexing"
+                                      >
+                                        Reindex
+                                      </button>
+                                      <button
+                                        onClick={() => handleResetRepoIndex(repo.id)}
+                                        className="px-2.5 py-1 rounded border border-white/10 hover:border-red-500/40 bg-white/5 hover:bg-red-500/10 text-neutral-400 hover:text-red-400 transition-colors"
+                                        title="Reset Index Lock"
+                                      >
+                                        Reset
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUBTAB: RECENT PRS & REVIEWS */}
+                  {detailSubTab === 'prs' && (
+                    <div className="space-y-4">
+                      {userDetails?.pullRequests?.length === 0 ? (
+                        <div className="py-12 text-center text-xs font-mono text-neutral-500">
+                          No pull requests detected for this user.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs font-mono">
+                            <thead>
+                              <tr className="border-b border-white/10 text-neutral-400 text-[11px]">
+                                <th className="py-2.5 px-3">PR #</th>
+                                <th className="py-2.5 px-3">Title</th>
+                                <th className="py-2.5 px-3">Branches</th>
+                                <th className="py-2.5 px-3">Status</th>
+                                <th className="py-2.5 px-3">Date</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {userDetails?.pullRequests?.map((pr) => (
+                                <tr key={pr.id} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="py-3 px-3 text-orange-400 font-bold">#{pr.prNumber}</td>
+                                  <td className="py-3 px-3 text-white max-w-xs truncate">{pr.title}</td>
+                                  <td className="py-3 px-3 text-neutral-400 text-[11px]">
+                                    {pr.headBranch} → {pr.baseBranch}
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-white/5 text-neutral-300 border border-white/10">
+                                      {pr.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-neutral-500 text-[11px]">
+                                    {new Date(pr.createdAt).toLocaleDateString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUBTAB: RESTRICTIONS & QUOTAS */}
+                  {detailSubTab === 'restrictions' && (
+                    <div className="space-y-5 max-w-xl">
+                      <div className="p-5 rounded-xl border border-white/10 bg-black/40 space-y-4 text-xs font-mono">
+                        <h4 className="font-semibold text-white uppercase text-[11px] tracking-wider text-orange-400">
+                          Monthly Review Quota Override
+                        </h4>
+                        <p className="text-neutral-400 text-xs">
+                          Override monthly automated AI review budget for this account.
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            value={newQuota}
+                            onChange={(e) => setNewQuota(Number(e.target.value))}
+                            className="w-48 px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-orange-500/50"
+                          />
+                          <button
+                            onClick={async () => {
+                              setSelectedUserForQuota(inspectingUser);
+                              await handleSaveQuota();
+                            }}
+                            className="px-4 py-1.5 rounded-lg text-xs font-mono font-semibold bg-[#F6821F] hover:bg-[#ff9538] text-black transition-colors"
+                          >
+                            Save Quota
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB: DANGER ZONE & DELETION */}
+                  {detailSubTab === 'danger' && (
+                    <div className="space-y-5 max-w-xl">
+                      <div className="p-5 rounded-xl border border-red-500/30 bg-red-500/5 space-y-4">
+                        <div className="flex items-center gap-2 text-red-400">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <h4 className="font-mono text-sm font-semibold">Danger Zone: Permanent Account Deletion</h4>
+                        </div>
+                        <p className="text-xs text-neutral-300 leading-relaxed">
+                          Permanently delete this user, revoke all active sessions in Redis, and delete organization memberships. This action cannot be undone.
+                        </p>
+
+                        {/* Edge Case Safeguard: Cannot delete self */}
+                        {currentAdminUser && currentAdminUser.id === inspectingUser.id ? (
+                          <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-xs font-mono text-red-300">
+                            Protected Safeguard: You cannot delete your own currently logged-in administrator account.
+                          </div>
+                        ) : (
+                          <div className="space-y-3 pt-2">
+                            <p className="text-xs text-neutral-400 font-mono">
+                              To confirm deletion, please type <span className="text-white font-bold">{inspectingUser.email}</span> below:
+                            </p>
+                            <input
+                              type="text"
+                              value={deleteConfirmEmail}
+                              onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                              placeholder="Enter user email to confirm"
+                              className="w-full px-3 py-2 rounded-lg bg-black/60 border border-red-500/30 text-white font-mono text-xs focus:outline-none focus:border-red-500"
+                            />
+                            <button
+                              onClick={handleDeleteUser}
+                              disabled={
+                                deleteConfirmEmail.trim().toLowerCase() !== inspectingUser.email.toLowerCase() ||
+                                deletingUser
+                              }
+                              className="w-full py-2 rounded-lg text-xs font-mono font-semibold bg-red-600 hover:bg-red-500 text-white disabled:opacity-30 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>{deletingUser ? 'Deleting Account...' : 'Permanently Delete User Account'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Quota Override (Direct from table) ── */}
       {selectedUserForQuota && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md p-6 rounded-2xl border border-white/10 bg-[#0c0e12] space-y-4 shadow-2xl">

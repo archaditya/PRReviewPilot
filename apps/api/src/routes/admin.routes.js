@@ -28,6 +28,9 @@ router.post('/jobs/:id/retry', (req, res, next) => adminController.retryReviewJo
 
 // User Management & Access Controls
 router.get('/users', (req, res, next) => adminController.listUsersWithUsage(req, res, next));
+router.get('/users/:id/details', (req, res, next) => adminController.getUserDetails(req, res, next));
+router.delete('/users/:id', (req, res, next) => adminController.deleteUser(req, res, next));
+router.patch('/users/:id/restrictions', (req, res, next) => adminController.updateUserRestrictions(req, res, next));
 router.patch('/users/:id/quota', (req, res, next) => adminController.updateUserQuota(req, res, next));
 router.patch('/users/:id/status', (req, res, next) => adminController.updateUserStatus(req, res, next));
 router.patch('/users/:id/role', (req, res, next) => adminController.updateUserRole(req, res, next));

@@ -442,14 +442,217 @@ class AdminController {
     }
   }
 
+  // GET /api/admin/users/:id/details
+  async getUserDetails(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { Op } = require('sequelize');
+
+      const user = await db.User.findByPk(id, {
+        attributes: [
+          'id',
+          'name',
+          'email',
+          'role',
+          'status',
+          'githubUsername',
+          'githubUserId',
+          'bitbucketUsername',
+          'avatarUrl',
+          'usage',
+          'emailVerified',
+          'createdAt',
+          'lastLoginAt',
+          'updatedAt',
+        ],
+        include: [
+          {
+            model: db.Organization,
+            as: 'ownedOrganizations',
+            attributes: ['id', 'name', 'slug', 'features'],
+          },
+        ],
+      });
+
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      // Installations linked to this user
+      const installations = await db.Installation.findAll({
+        where: { installedByUserId: id },
+        attributes: ['id', 'provider', 'providerInstallationId', 'accountLogin', 'accountType', 'status', 'createdAt'],
+      });
+
+      const instIds = installations.map((i) => i.id);
+      const orgIds = (user.ownedOrganizations || []).map((o) => o.id);
+
+      // Repositories associated with this user
+      const whereConditions = [];
+      if (instIds.length > 0) whereConditions.push({ installationId: { [Op.in]: instIds } });
+      if (orgIds.length > 0) whereConditions.push({ organizationId: { [Op.in]: orgIds } });
+
+      let repositories = [];
+      if (whereConditions.length > 0) {
+        repositories = await db.Repository.findAll({
+          where: { [Op.or]: whereConditions },
+          attributes: [
+            'id',
+            'name',
+            'providerFullName',
+            'provider',
+            'defaultBranch',
+            'isActive',
+            'indexStatus',
+            'fileCount',
+            'symbolCount',
+            'indexedAt',
+            'indexError',
+            'createdAt',
+          ],
+          order: [['createdAt', 'DESC']],
+        });
+      }
+
+      const repoIds = repositories.map((r) => r.id);
+
+      // Pull requests & Review jobs for user's repos
+      let pullRequests = [];
+      let reviewJobs = [];
+
+      if (repoIds.length > 0) {
+        try {
+          pullRequests = await db.PullRequest.findAll({
+            where: { repositoryId: { [Op.in]: repoIds } },
+            attributes: ['id', 'repositoryId', 'prNumber', 'title', 'headBranch', 'baseBranch', 'status', 'createdAt'],
+            order: [['createdAt', 'DESC']],
+            limit: 25,
+          });
+        } catch (e) {
+          logger.warn({ err: e.message }, 'Failed fetching pull requests for user repos');
+        }
+
+        try {
+          reviewJobs = await db.ReviewJob.findAll({
+            where: { repositoryId: { [Op.in]: repoIds } },
+            attributes: ['id', 'repositoryId', 'status', 'trigger', 'tokensUsed', 'estimatedCostUsd', 'durationMs', 'error', 'createdAt'],
+            order: [['createdAt', 'DESC']],
+            limit: 25,
+          });
+        } catch (e) {
+          logger.warn({ err: e.message }, 'Failed fetching review jobs for user repos');
+        }
+      }
+
+      return res.json({
+        success: true,
+        user,
+        installations,
+        repositories,
+        pullRequests,
+        reviewJobs,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // DELETE /api/admin/users/:id
+  async deleteUser(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      // 1. Edge Case: Prevent admin deleting their own currently logged-in account
+      if (req.user && req.user.id === id) {
+        return res.status(400).json({ success: false, error: 'Cannot delete your own active administrator account.' });
+      }
+
+      const targetUser = await db.User.findByPk(id);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      // 2. Edge Case: Non-superadmin cannot delete a superadmin
+      if (targetUser.role === 'superadmin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ success: false, error: 'Only superadmins are permitted to delete a superadmin account.' });
+      }
+
+      // 3. Immediately invalidate all active sessions in Redis so the user is kicked out
+      try {
+        const sessionService = require('../services/session.service');
+        await sessionService.revokeAllUserSessions(id);
+      } catch (sessErr) {
+        logger.warn({ err: sessErr.message }, 'Failed revoking sessions during user delete');
+      }
+
+      // 4. Clean up organization memberships and related user records
+      await db.OrganizationMember.destroy({ where: { userId: id } });
+
+      const emailDeleted = targetUser.email;
+      await targetUser.destroy();
+
+      logger.info({ adminId: req.user.id, targetUserId: id, targetEmail: emailDeleted }, 'Admin deleted user account');
+
+      return res.json({ success: true, message: `User account ${emailDeleted} has been permanently deleted.` });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // PATCH /api/admin/users/:id/restrictions
+  async updateUserRestrictions(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { maxReviewsPerMonth, isBlocked, notes } = req.body;
+
+      const user = await db.User.findByPk(id, {
+        include: [{ model: db.Organization, as: 'ownedOrganizations' }],
+      });
+
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      if (typeof isBlocked === 'boolean') {
+        user.status = isBlocked ? 'blocked' : 'active';
+        await user.save();
+
+        if (isBlocked) {
+          const sessionService = require('../services/session.service');
+          await sessionService.revokeAllUserSessions(id).catch(() => {});
+        }
+      }
+
+      if (maxReviewsPerMonth !== undefined) {
+        for (const org of user.ownedOrganizations || []) {
+          org.features = {
+            ...org.features,
+            max_reviews_per_month: parseInt(maxReviewsPerMonth, 10),
+            admin_notes: notes || org.features?.admin_notes,
+          };
+          await org.save();
+        }
+      }
+
+      return res.json({ success: true, message: 'User restrictions updated successfully', user });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   // PATCH /api/admin/users/:id/status
   async updateUserStatus(req, res, next) {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
-      if (!['active', 'suspended', 'deactivated'].includes(status)) {
-        return res.status(400).json({ success: false, error: 'Invalid status' });
+      if (!['active', 'suspended', 'blocked', 'deactivated'].includes(status)) {
+        return res.status(400).json({ success: false, error: 'Invalid status. Must be active, suspended, or blocked.' });
+      }
+
+      // Edge case: cannot block self
+      if (req.user && req.user.id === id && (status === 'suspended' || status === 'blocked')) {
+        return res.status(400).json({ success: false, error: 'Cannot suspend or block your own active account.' });
       }
 
       const user = await db.User.findByPk(id);
@@ -459,6 +662,12 @@ class AdminController {
 
       user.status = status;
       await user.save();
+
+      // If suspended or blocked, kill all active sessions immediately
+      if (status === 'suspended' || status === 'blocked' || status === 'deactivated') {
+        const sessionService = require('../services/session.service');
+        await sessionService.revokeAllUserSessions(id).catch(() => {});
+      }
 
       return res.json({ success: true, user });
     } catch (err) {
@@ -474,6 +683,11 @@ class AdminController {
 
       if (!['user', 'admin', 'superadmin'].includes(role)) {
         return res.status(400).json({ success: false, error: 'Invalid role' });
+      }
+
+      // Edge case: cannot demote self if superadmin
+      if (req.user && req.user.id === id && role !== 'superadmin' && req.user.role === 'superadmin') {
+        return res.status(400).json({ success: false, error: 'Cannot demote your own superadmin role.' });
       }
 
       const user = await db.User.findByPk(id);
@@ -508,6 +722,10 @@ class AdminController {
       const salt = await bcrypt.genSalt(12);
       user.passwordHash = await bcrypt.hash(newPassword, salt);
       await user.save();
+
+      // Invalidate old sessions to enforce login with new password
+      const sessionService = require('../services/session.service');
+      await sessionService.revokeAllUserSessions(id).catch(() => {});
 
       return res.json({ success: true, message: `Password successfully updated for ${user.email}` });
     } catch (err) {
