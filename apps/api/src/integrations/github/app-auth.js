@@ -64,13 +64,63 @@ async function getApp() {
 }
 
 /**
+ * Resolves a valid numeric GitHub installation ID from either a numeric string/number
+ * or from a PostgreSQL Installation/Repository UUID record.
+ */
+async function resolveNumericInstallationId(installationId) {
+  if (!installationId) return null;
+  const strId = String(installationId).trim();
+  if (/^\d+$/.test(strId)) {
+    return Number(strId);
+  }
+
+  try {
+    const db = require('../../models');
+    // 1. Try finding Installation by primary key (UUID)
+    let inst = await db.Installation.findByPk(installationId);
+    if (inst && inst.providerInstallationId && /^\d+$/.test(String(inst.providerInstallationId))) {
+      return Number(inst.providerInstallationId);
+    }
+
+    // 2. Try finding by Repository if installationId passed was a repo UUID
+    const repo = await db.Repository.findByPk(installationId, {
+      include: [{ model: db.Installation, as: 'installation' }],
+    });
+    if (repo && repo.installation && repo.installation.providerInstallationId) {
+      if (/^\d+$/.test(String(repo.installation.providerInstallationId))) {
+        return Number(repo.installation.providerInstallationId);
+      }
+    }
+
+    // 3. Fallback: find any active GitHub installation in this workspace
+    const anyInst = await db.Installation.findOne({
+      where: { provider: 'github', status: 'active' },
+      order: [['createdAt', 'DESC']],
+    });
+    if (anyInst && anyInst.providerInstallationId && /^\d+$/.test(String(anyInst.providerInstallationId))) {
+      return Number(anyInst.providerInstallationId);
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  return null;
+}
+
+/**
  * Returns an Octokit instance authenticated as the given installation (short-lived
  * installation access token, cached/refreshed internally by @octokit/app — ADR-007).
  * This is the only way the rest of the codebase should get a GitHub client.
  */
 async function getInstallationOctokit(installationId) {
   const app = await getApp();
-  return app.getInstallationOctokit(installationId);
+  const numericId = await resolveNumericInstallationId(installationId);
+  if (!numericId) {
+    throw new Error(
+      `Cannot authenticate GitHub installation: missing or invalid numeric installation ID (received: ${installationId})`,
+    );
+  }
+  return app.getInstallationOctokit(numericId);
 }
 
 /**
@@ -82,4 +132,4 @@ async function getInstallationToken(installationId) {
   return auth.token;
 }
 
-module.exports = { getApp, getInstallationOctokit, getInstallationToken };
+module.exports = { getApp, getInstallationOctokit, getInstallationToken, resolveNumericInstallationId };

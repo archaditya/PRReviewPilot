@@ -109,7 +109,8 @@ async function triggerReindex(userId, repositoryId) {
   const fullName = repository.fullName || repository.providerFullName || repository.name || '';
   const [owner, repoName] = fullName.includes('/') ? fullName.split('/') : ['', fullName];
   const installation = repository.installation;
-  const instId = installation?.providerInstallationId || installation?.githubInstallationId || repository.installationId;
+  const { resolveNumericInstallationId } = require('../integrations/github/app-auth');
+  const instId = (await resolveNumericInstallationId(installation?.providerInstallationId || repository.installationId || repository.id)) || installation?.providerInstallationId;
   const jobPayload = {
     repositoryId: repository.id,
     installationId: instId,

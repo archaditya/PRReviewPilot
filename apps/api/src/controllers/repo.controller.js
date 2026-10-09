@@ -242,14 +242,17 @@ class RepoController {
 
       const { inngest } = require('../jobs');
       const repositoryService = require('../services/repository.service');
+      const { resolveNumericInstallationId } = require('../integrations/github/app-auth');
       const fullName = repo.providerFullName || repo.name;
       const parts = fullName.split('/');
       const owner = parts.length > 1 ? parts[0] : 'owner';
       const repoName = parts.length > 1 ? parts[1] : repo.name;
 
+      const numericInstallationId = await resolveNumericInstallationId(repo.installationId || repo.id);
+
       const jobPayload = {
         repositoryId: repo.id,
-        installationId: repo.installationId,
+        installationId: numericInstallationId || repo.installationId,
         owner,
         repo: repoName,
         branch: repo.defaultBranch || 'main',
