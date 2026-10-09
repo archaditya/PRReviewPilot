@@ -471,6 +471,12 @@ class AdminController {
             as: 'ownedOrganizations',
             attributes: ['id', 'name', 'slug', 'features'],
           },
+          {
+            model: db.Organization,
+            as: 'organizations',
+            attributes: ['id', 'name', 'slug', 'features'],
+            through: { attributes: ['role'] },
+          },
         ],
       });
 
@@ -485,12 +491,14 @@ class AdminController {
       });
 
       const instIds = installations.map((i) => i.id);
-      const orgIds = (user.ownedOrganizations || []).map((o) => o.id);
+      const ownedOrgIds = (user.ownedOrganizations || []).map((o) => o.id);
+      const memberOrgIds = (user.organizations || []).map((o) => o.id);
+      const allOrgIds = Array.from(new Set([...ownedOrgIds, ...memberOrgIds]));
 
       // Repositories associated with this user
       const whereConditions = [];
       if (instIds.length > 0) whereConditions.push({ installationId: { [Op.in]: instIds } });
-      if (orgIds.length > 0) whereConditions.push({ organizationId: { [Op.in]: orgIds } });
+      if (allOrgIds.length > 0) whereConditions.push({ organizationId: { [Op.in]: allOrgIds } });
 
       let repositories = [];
       if (whereConditions.length > 0) {
@@ -502,7 +510,7 @@ class AdminController {
             'providerFullName',
             'provider',
             'defaultBranch',
-            'isActive',
+            'status',
             'indexStatus',
             'fileCount',
             'symbolCount',
@@ -535,7 +543,7 @@ class AdminController {
         try {
           reviewJobs = await db.ReviewJob.findAll({
             where: { repositoryId: { [Op.in]: repoIds } },
-            attributes: ['id', 'repositoryId', 'status', 'trigger', 'tokensUsed', 'estimatedCostUsd', 'durationMs', 'error', 'createdAt'],
+            attributes: ['id', 'repositoryId', 'status', 'tokensUsed', 'estimatedCostUsd', 'durationMs', 'errorMessage', 'createdAt'],
             order: [['createdAt', 'DESC']],
             limit: 25,
           });

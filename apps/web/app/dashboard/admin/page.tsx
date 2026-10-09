@@ -170,7 +170,7 @@ interface UserDetailedData {
     providerFullName: string;
     provider: string;
     defaultBranch: string;
-    isActive: boolean;
+    status?: string;
     indexStatus: 'INDEXED' | 'INDEXING' | 'FAILED' | 'NOT_INDEXED';
     fileCount: number;
     symbolCount: number;
@@ -191,12 +191,14 @@ interface UserDetailedData {
   reviewJobs: Array<{
     id: string;
     repositoryId: string;
+    prNumber?: number;
     status: string;
-    trigger: string;
+    riskLevel?: string;
+    findingsCount?: number;
     tokensUsed: number;
     estimatedCostUsd: number;
     durationMs: number;
-    error?: string;
+    errorMessage?: string;
     createdAt: string;
   }>;
 }
