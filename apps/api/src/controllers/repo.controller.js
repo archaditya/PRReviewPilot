@@ -241,21 +241,29 @@ class RepoController {
       await repo.save();
 
       const { inngest } = require('../jobs');
+      const repositoryService = require('../services/repository.service');
       const fullName = repo.providerFullName || repo.name;
       const parts = fullName.split('/');
       const owner = parts.length > 1 ? parts[0] : 'owner';
       const repoName = parts.length > 1 ? parts[1] : repo.name;
 
-      await inngest.send({
-        name: 'repo/index.requested',
-        data: {
-          repositoryId: repo.id,
-          installationId: repo.installationId,
-          owner,
-          repo: repoName,
-          branch: repo.defaultBranch || 'main',
-        },
-      });
+      const jobPayload = {
+        repositoryId: repo.id,
+        installationId: repo.installationId,
+        owner,
+        repo: repoName,
+        branch: repo.defaultBranch || 'main',
+      };
+
+      // Dispatch via Inngest and background worker fallback
+      inngest
+        .send({
+          name: 'repo/index.requested',
+          data: jobPayload,
+        })
+        .catch((err) => {
+          repositoryService.runIndexJob(jobPayload).catch(() => {});
+        });
 
       return res.json({ success: true, message: 'Reindexing triggered', repository: repo });
     } catch (err) {

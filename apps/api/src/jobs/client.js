@@ -8,6 +8,7 @@ const config = require('../config');
 const inngest = new Inngest({
   id: 'archadi-pr-review-api',
   eventKey: config.inngest.eventKey,
+  baseUrl: process.env.INNGEST_BASE_URL || (process.env.NODE_ENV === 'production' ? 'http://inngest:8288' : 'http://localhost:8288'),
 });
 
 module.exports = inngest;

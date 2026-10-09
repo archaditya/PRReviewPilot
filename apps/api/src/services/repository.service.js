@@ -200,4 +200,5 @@ module.exports = {
   triggerReindex,
   resetIndex,
   syncForUser,
+  runIndexJob,
 };

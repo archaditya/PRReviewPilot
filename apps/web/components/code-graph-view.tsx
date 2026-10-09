@@ -50,38 +50,38 @@ export function CodeGraphView({ prNumber = 42, activeFile = '' }: { prNumber?: n
   const getNodeColor = (node: GraphNode) => {
     if (node.impacted) {
       if (node.severity === 'critical') return '#f43f5e'; // rose-500
-      if (node.severity === 'high') return '#f59e0b'; // amber-500
-      return '#6366f1'; // indigo-500
+      if (node.severity === 'high') return '#F6821F'; // cloudflare orange
+      return '#38bdf8'; // sky-400
     }
     return '#334155'; // slate-700
   };
 
   return (
-    <div className="glass-panel rounded-2xl border border-gray-800 p-6 space-y-4">
+    <div className="card-chai p-5 space-y-4">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div>
           <div className="flex items-center space-x-2">
-            <Layers className="w-5 h-5 text-indigo-400" />
-            <h3 className="font-bold text-lg text-white">Codebase Dependency & Impact Graph</h3>
+            <Layers className="w-4 h-4 text-orange-400" />
+            <h3 className="font-semibold text-sm text-white">AST Dependency & Blast Radius Graph</h3>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Visualizing dependency links and blast radius caused by changes in PR #{prNumber}.
+          <p className="text-xs text-neutral-400 mt-1">
+            Traversing Neo4j abstract syntax tree symbols and callers impacted by pull request #{prNumber}.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
           {/* Filter options */}
-          <div className="inline-flex rounded-lg bg-gray-900 p-1 border border-gray-800 text-xs">
+          <div className="inline-flex rounded-md bg-neutral-900 p-0.5 border border-white/10 text-xs">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded-md transition ${filter === 'all' ? 'bg-indigo-600 text-white font-medium' : 'text-gray-400 hover:text-white'}`}
+              className={`px-2.5 py-1 rounded text-xs transition ${filter === 'all' ? 'bg-orange-500/20 text-orange-300 font-medium border border-orange-500/30' : 'text-neutral-400 hover:text-white'}`}
             >
               All Modules
             </button>
             <button
               onClick={() => setFilter('impacted')}
-              className={`px-3 py-1 rounded-md transition ${filter === 'impacted' ? 'bg-rose-600 text-white font-medium' : 'text-gray-400 hover:text-white'}`}
+              className={`px-2.5 py-1 rounded text-xs transition ${filter === 'impacted' ? 'bg-rose-500/20 text-rose-300 font-medium border border-rose-500/30' : 'text-neutral-400 hover:text-white'}`}
             >
               Impacted Only (3)
             </button>
@@ -89,23 +89,23 @@ export function CodeGraphView({ prNumber = 42, activeFile = '' }: { prNumber?: n
 
           <button
             onClick={() => setZoomLevel((z) => Math.min(z + 0.15, 1.6))}
-            className="p-1.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-white"
+            className="p-1 rounded-md bg-neutral-900 border border-white/10 text-neutral-400 hover:text-white"
             title="Zoom In"
           >
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setZoomLevel((z) => Math.max(z - 0.15, 0.7))}
-            className="p-1.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-white"
+            className="p-1 rounded-md bg-neutral-900 border border-white/10 text-neutral-400 hover:text-white"
             title="Zoom Out"
           >
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* SVG Canvas Area */}
-      <div className="relative w-full h-80 bg-gray-950/70 rounded-xl border border-gray-800/80 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full h-80 bg-[#0c0e12] rounded-lg border border-white/10 overflow-hidden flex items-center justify-center">
         <svg
           viewBox="0 0 820 340"
           className="w-full h-full transition-transform duration-200"
