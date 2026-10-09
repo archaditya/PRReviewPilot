@@ -101,7 +101,7 @@ export default function RepositoryDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="font-mono text-xl sm:text-2xl font-semibold tracking-tight text-white">{repository.fullName}</h1>
+            <h1 className="font-mono text-xl sm:text-2xl font-semibold tracking-tight text-white">{repository.fullName || repository.providerFullName || repository.name || 'Repository'}</h1>
             <IndexStatusBadge status={repository.indexStatus} />
           </div>
           <p className="text-sm text-neutral-400 mt-1">

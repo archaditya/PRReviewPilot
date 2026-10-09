@@ -11,6 +11,7 @@ interface Repo {
   providerFullName: string;
   defaultBranch: string;
   isActive: boolean;
+  indexStatus?: string;
   reviewPolicy?: {
     strictness?: string;
   };
@@ -20,6 +21,7 @@ export default function RepositoriesPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [reindexingId, setReindexingId] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchRepos = async () => {
@@ -67,6 +69,38 @@ export default function RepositoriesPage() {
       });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleReindex = async (id: string, repoName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setReindexingId(id);
+      setSyncNotice(null);
+      const res = await fetch(`/api/repositories/${id}/reindex`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSyncNotice({
+          type: 'success',
+          message: `Re-indexing triggered for ${repoName}. Neo4j AST extraction started.`,
+        });
+        await fetchRepos();
+      } else {
+        setSyncNotice({
+          type: 'error',
+          message: data.error || 'Failed to trigger re-index.',
+        });
+      }
+    } catch (err: any) {
+      setSyncNotice({
+        type: 'error',
+        message: err.message || 'Network error triggering re-index.',
+      });
+    } finally {
+      setReindexingId(null);
     }
   };
 
@@ -266,6 +300,17 @@ export default function RepositoriesPage() {
                       <option value="strict">Strict (High Scrutiny)</option>
                     </select>
                   </div>
+
+                  {/* Re-index Graph Button */}
+                  <button
+                    onClick={(e) => handleReindex(repo.id, repo.providerFullName || repo.name, e)}
+                    disabled={reindexingId === repo.id}
+                    className="px-2.5 py-1 rounded-md text-xs font-mono border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+                    title="Re-index Code Knowledge Graph in Neo4j"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${reindexingId === repo.id ? 'animate-spin text-orange-400' : 'text-neutral-400'}`} />
+                    <span>{reindexingId === repo.id ? 'Indexing...' : 'Re-index'}</span>
+                  </button>
 
                   {/* Status Toggle Switch */}
                   <button

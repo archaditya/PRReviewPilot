@@ -10,8 +10,8 @@ export function useReviewJob(id: string) {
   return useQuery({
     queryKey: ['review-jobs', 'detail', id],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data: ReviewJobDetail }>(`/review-jobs/${id}`);
-      return data.data;
+      const res = await apiClient.get<any>(`/review-jobs/${id}`);
+      return res.data.job || res.data.data || res.data;
     },
     enabled: Boolean(id),
     // Poll while the pipeline is still running so the stepper/findings update live;

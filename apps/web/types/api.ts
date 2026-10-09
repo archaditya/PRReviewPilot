@@ -58,22 +58,30 @@ export interface User {
 
 export interface Repository {
   id: string;
-  installationId: string;
-  githubRepoId: number;
-  fullName: string;
-  isActive: boolean;
-  indexStatus: RepoIndexStatus;
-  indexedCommitSha: string | null;
-  indexedAt: string | null;
-  defaultBranch: string;
-  indexError: string | null;
-  fileCount: number;
-  symbolCount: number;
+  installationId?: string;
+  githubRepoId?: number;
+  fullName?: string;
+  providerFullName?: string;
+  name?: string;
+  provider?: 'github' | 'bitbucket';
+  isActive?: boolean;
+  status?: string;
+  indexStatus?: RepoIndexStatus | string;
+  indexedCommitSha?: string | null;
+  indexedAt?: string | null;
+  defaultBranch?: string;
+  indexError?: string | null;
+  fileCount?: number;
+  symbolCount?: number;
   aiReviewEnabled?: boolean;
   reviewLevel?: 'balanced' | 'strict' | 'permissive';
   customVoice?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  reviewPolicy?: {
+    strictness?: string;
+    [key: string]: any;
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PullRequestSummary {

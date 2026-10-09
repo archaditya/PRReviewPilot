@@ -7,13 +7,21 @@ export function useResetIndexRepository(repositoryId: string) {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await apiClient.post<{ data: Repository }>(
+      const response = await apiClient.post<any>(
         `/repositories/${repositoryId}/reset-index`,
       );
-      return response.data.data;
+      const raw = response.data.repository || response.data.data || response.data;
+      return {
+        ...raw,
+        fullName: raw.fullName || raw.providerFullName || raw.name || 'Unnamed Repository',
+        isActive: raw.isActive !== undefined ? raw.isActive : raw.status === 'active',
+        indexStatus: raw.indexStatus || 'NOT_INDEXED',
+      } as Repository;
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(['repositories', repositoryId], updated);
+      if (updated) {
+        queryClient.setQueryData(['repositories', repositoryId], updated);
+      }
       queryClient.invalidateQueries({ queryKey: ['repositories'] });
     },
   });

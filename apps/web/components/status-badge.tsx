@@ -44,40 +44,43 @@ export function StatusBadge({ status }: { status: ReviewJobStatus }) {
   );
 }
 
-export function IndexStatusBadge({ status }: { status: RepoIndexStatus }) {
-  switch (status) {
+export function IndexStatusBadge({ status }: { status?: RepoIndexStatus | string }) {
+  const norm = (status || '').toUpperCase();
+  switch (norm) {
     case 'INDEXED':
+    case 'COMPLETED':
       return (
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-diff-add/30 bg-diff-add/10 px-2.5 py-0.5 font-mono text-xs text-diff-add">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-xs text-emerald-400">
           <CheckCircle2 className="h-3 w-3" />
           Indexed
         </span>
       );
     case 'INDEXING':
       return (
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-mono text-xs text-primary">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 font-mono text-xs text-white">
           <Loader2 className="h-3 w-3 animate-spin" />
           Indexing...
         </span>
       );
     case 'REINDEXING':
       return (
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-mono text-xs text-primary">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 font-mono text-xs text-white">
           <Loader2 className="h-3 w-3 animate-spin" />
           Re-indexing...
         </span>
       );
     case 'FAILED':
       return (
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-0.5 font-mono text-xs text-destructive">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 font-mono text-xs text-rose-400">
           <AlertTriangle className="h-3 w-3" />
           Index Failed
         </span>
       );
     case 'NOT_INDEXED':
+    case 'PENDING':
     default:
       return (
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-muted/30 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-xs text-neutral-400">
           <Clock className="h-3 w-3" />
           Not Indexed
         </span>

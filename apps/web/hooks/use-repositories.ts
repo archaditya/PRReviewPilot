@@ -8,8 +8,14 @@ export function useRepositories() {
   return useQuery({
     queryKey: ['repositories'],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data: Repository[] }>('/repositories');
-      return data.data;
+      const res = await apiClient.get<any>('/repositories');
+      const list = res.data.repositories || res.data.data || (Array.isArray(res.data) ? res.data : []);
+      return list.map((raw: any) => ({
+        ...raw,
+        fullName: raw.fullName || raw.providerFullName || raw.name || 'Unnamed Repository',
+        isActive: raw.isActive !== undefined ? raw.isActive : raw.status === 'active',
+        indexStatus: raw.indexStatus || 'NOT_INDEXED',
+      })) as Repository[];
     },
     retry: false,
   });
