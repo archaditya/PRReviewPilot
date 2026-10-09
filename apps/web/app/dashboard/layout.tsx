@@ -18,6 +18,8 @@ import {
   Activity,
   Layers,
   ArrowUpRight,
+  Users,
+  Terminal,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -49,6 +51,9 @@ export default function DashboardLayout({
           if (data.success && data.user && isMounted) {
             setCurrentUser(data.user);
             setLoading(false);
+            if ((data.user.role === 'admin' || data.user.role === 'superadmin') && pathname === '/dashboard') {
+              router.replace('/dashboard/admin');
+            }
             return;
           }
         }
@@ -66,6 +71,9 @@ export default function DashboardLayout({
             if (retryData.success && retryData.user && isMounted) {
               setCurrentUser(retryData.user);
               setLoading(false);
+              if ((retryData.user.role === 'admin' || retryData.user.role === 'superadmin') && pathname === '/dashboard') {
+                router.replace('/dashboard/admin');
+              }
               return;
             }
           }
@@ -165,62 +173,64 @@ export default function DashboardLayout({
               </button>
             </div>
 
-            {/* Section 1: Developer Workspace */}
-            <div className="space-y-1">
-              <span className="font-mono text-[10px] font-medium text-neutral-500 uppercase tracking-wider px-3 mb-2 block">
-                Workspace Menu
-              </span>
-              <nav className="space-y-1">
-                {workspaceNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive =
-                    item.href === '/dashboard'
-                      ? pathname === '/dashboard'
-                      : pathname.startsWith(item.href) && !pathname.startsWith('/dashboard/admin');
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                        isActive
-                          ? 'bg-[#F6821F]/10 text-white border-l-2 border-[#F6821F] rounded-l-none'
-                          : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-orange-400' : ''}`} />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-
-            {/* Section 2: Dedicated Admin Control Center (Only for SuperAdmin / Admin) */}
-            {isSuperOrAdmin && (
-              <div className="pt-4 mt-4 border-t border-white/5 space-y-1">
-                <div className="flex items-center justify-between px-3 mb-2">
-                  <span className="font-mono text-[10px] font-medium text-orange-400 uppercase tracking-wider">
-                    System Control
+            {/* SIDEBAR NAVIGATION: Admin gets EXCLUSIVELY Admin Console, regular user gets Workspace */}
+            {isSuperOrAdmin ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-3 mb-3">
+                  <span className="font-mono text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                    Admin Operations
                   </span>
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-[#F6821F]/15 text-[#F6821F] border border-[#F6821F]/30 uppercase">
+                  <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-[#F6821F]/20 text-[#F6821F] border border-[#F6821F]/30 uppercase">
                     {currentUser?.role}
                   </span>
                 </div>
-                <Link
-                  href="/dashboard/admin"
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    pathname.startsWith('/dashboard/admin')
-                      ? 'bg-[#F6821F]/15 text-white border-l-2 border-[#F6821F] rounded-l-none'
-                      : 'text-neutral-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <ShieldCheck
-                    className={`w-4 h-4 shrink-0 ${
-                      pathname.startsWith('/dashboard/admin') ? 'text-[#F6821F]' : 'text-neutral-400'
-                    }`}
-                  />
-                  <span>Admin Console</span>
-                </Link>
+                <nav className="space-y-1">
+                  {[
+                    { name: 'System Monitoring & Health', href: '/dashboard/admin?tab=monitoring', icon: Activity },
+                    { name: 'Background Jobs & Queues', href: '/dashboard/admin?tab=jobs', icon: Layers },
+                    { name: 'System Setup & Config', href: '/dashboard/admin?tab=config', icon: Settings },
+                    { name: 'User Management & Controls', href: '/dashboard/admin?tab=users', icon: Users },
+                    { name: 'Diagnostic Tools & Ops', href: '/dashboard/admin?tab=controls', icon: Terminal },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-mono font-medium text-neutral-300 hover:text-white hover:bg-white/5 transition-all"
+                      >
+                        <Icon className="w-4 h-4 shrink-0 text-orange-400/80" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <span className="font-mono text-[10px] font-medium text-neutral-500 uppercase tracking-wider px-3 mb-2 block">
+                  Workspace Menu
+                </span>
+                <nav className="space-y-1">
+                  {workspaceNavItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                          isActive
+                            ? 'bg-[#F6821F]/10 text-white border-l-2 border-[#F6821F] rounded-l-none'
+                            : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-orange-400' : ''}`} />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
               </div>
             )}
           </div>

@@ -287,38 +287,54 @@ class AdminController {
   // GET /api/admin/jobs
   async getJobsAudit(req, res, next) {
     try {
-      const reviewJobs = await db.ReviewJob.findAll({
-        limit: 50,
-        order: [['createdAt', 'DESC']],
-        include: [
-          {
-            model: db.Repository,
-            as: 'repository',
-            attributes: ['id', 'name', 'providerFullName', 'defaultBranch'],
-          },
-          {
-            model: db.PullRequest,
-            as: 'pullRequest',
-            attributes: ['id', 'number', 'title', 'sourceBranch', 'targetBranch'],
-          },
-        ],
-      });
+      let reviewJobs = [];
+      try {
+        reviewJobs = await db.ReviewJob.findAll({
+          limit: 50,
+          order: [['createdAt', 'DESC']],
+          include: [
+            {
+              model: db.Repository,
+              as: 'repository',
+              attributes: ['id', 'name', 'providerFullName', 'defaultBranch'],
+              required: false,
+            },
+            {
+              model: db.PullRequest,
+              as: 'pullRequest',
+              attributes: ['id', 'prNumber', 'title', 'headBranch', 'baseBranch'],
+              required: false,
+            },
+          ],
+        });
+      } catch (qErr) {
+        logger.warn({ err: qErr.message }, 'Failed detailed reviewJobs join in admin, falling back');
+        reviewJobs = await db.ReviewJob.findAll({
+          limit: 50,
+          order: [['createdAt', 'DESC']],
+        });
+      }
 
-      const repoIndexing = await db.Repository.findAll({
-        attributes: [
-          'id',
-          'name',
-          'providerFullName',
-          'indexStatus',
-          'indexedCommitSha',
-          'indexedAt',
-          'fileCount',
-          'symbolCount',
-          'indexError',
-          'updatedAt',
-        ],
-        order: [['updatedAt', 'DESC']],
-      });
+      let repoIndexing = [];
+      try {
+        repoIndexing = await db.Repository.findAll({
+          attributes: [
+            'id',
+            'name',
+            'providerFullName',
+            'indexStatus',
+            'indexedCommitSha',
+            'indexedAt',
+            'fileCount',
+            'symbolCount',
+            'indexError',
+            'updatedAt',
+          ],
+          order: [['updatedAt', 'DESC']],
+        });
+      } catch (rErr) {
+        logger.warn({ err: rErr.message }, 'Failed repoIndexing query in admin');
+      }
 
       return res.json({
         success: true,

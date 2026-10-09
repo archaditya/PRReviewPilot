@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { GitFork, ListChecks, ShieldAlert, CheckCircle2, ArrowRight, GitBranch, Plus, Sparkles, ArrowUpRight } from 'lucide-react';
 
 interface Repo {
@@ -27,9 +28,21 @@ interface Review {
 }
 
 export default function DashboardOverviewPage() {
+  const router = useRouter();
   const [repos, setRepos] = useState<Repo[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Admin check — admins belong in the Admin Control Console
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.user && (data.user.role === 'admin' || data.user.role === 'superadmin')) {
+          router.replace('/dashboard/admin');
+        }
+      });
+  }, [router]);
 
   useEffect(() => {
     async function loadData() {

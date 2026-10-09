@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Activity,
   AlertCircle,
@@ -147,8 +148,18 @@ interface AdminUser {
 
 type TabType = 'overview' | 'monitoring' | 'jobs' | 'config' | 'users' | 'controls';
 
-export default function AdminConsolePage() {
+function AdminConsoleInner() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as TabType;
+
   const [activeTab, setActiveTab] = useState<TabType>('monitoring');
+
+  useEffect(() => {
+    if (tabParam && ['monitoring', 'jobs', 'config', 'users', 'controls'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -1255,5 +1266,13 @@ export default function AdminConsolePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminConsolePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-neutral-400 font-mono text-xs">Loading Admin Operations...</div>}>
+      <AdminConsoleInner />
+    </Suspense>
   );
 }
