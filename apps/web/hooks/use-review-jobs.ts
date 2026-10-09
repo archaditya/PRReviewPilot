@@ -8,11 +8,16 @@ export function useReviewJobs(repositoryId: string) {
   return useQuery({
     queryKey: ['review-jobs', repositoryId],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ data: ReviewJob[] }>('/review-jobs', {
-        params: { repositoryId },
-      });
-      return data.data;
+      try {
+        const { data } = await apiClient.get<any>('/review-jobs', {
+          params: { repositoryId },
+        });
+        return data.data || data.jobs || [];
+      } catch (err) {
+        return [];
+      }
     },
     enabled: Boolean(repositoryId),
+    retry: false,
   });
 }

@@ -56,15 +56,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 font-sans antialiased flex flex-col selection:bg-white/20">
+    <div className="min-h-screen bg-[#0c0e12] text-neutral-100 font-sans antialiased flex flex-col selection:bg-orange-500/30">
       {/* ── Consistent Top Header ── */}
-      <header className="h-14 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between sticky top-0 z-50">
+      <header className="h-14 border-b border-white/10 bg-[#0d0f14]/85 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between sticky top-0 z-50">
         <Link href="/" className="flex items-center space-x-2.5 group">
-          <div className="w-7 h-7 rounded-lg border border-white/15 bg-white/5 flex items-center justify-center text-white group-hover:border-white/30 transition-colors">
-            <GitPullRequest className="w-3.5 h-3.5 text-white" />
+          <div className="w-7 h-7 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-white group-hover:border-orange-500/60 transition-colors">
+            <GitPullRequest className="w-3.5 h-3.5 text-orange-400" />
           </div>
           <span className="font-brand font-semibold text-base tracking-tight text-white block">
-            ReviewPilot<span className="text-[#FF7D0C]">.</span>
+            ReviewPilot<span className="text-[#F6821F]">.</span>
           </span>
         </Link>
 
@@ -81,7 +81,7 @@ export default function LoginPage() {
       <main className="flex-1 flex flex-col justify-center items-center px-4 py-12">
         <div className="max-w-md w-full card-chai p-8 space-y-6">
           <div className="flex flex-col items-center text-center">
-            <h2 className="font-montserrat text-xl font-medium text-white tracking-tight">
+            <h2 className="font-montserrat text-lg font-semibold text-white tracking-tight">
               {mode === 'login' ? 'Sign in to ReviewPilot' : 'Create your workspace account'}
             </h2>
             <p className="mt-1 text-xs text-neutral-400 leading-relaxed">
@@ -96,8 +96,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setMode('login'); setError(''); }}
-              className={`py-1.5 rounded-md transition-colors ${
-                mode === 'login' ? 'bg-white/10 text-white font-medium' : 'text-neutral-400 hover:text-white'
+              className={`py-1.5 rounded-md transition-all ${
+                mode === 'login' ? 'bg-orange-500/10 text-white font-medium border border-orange-500/30' : 'text-neutral-400 hover:text-white'
               }`}
             >
               Sign In
@@ -105,8 +105,8 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setMode('register'); setError(''); }}
-              className={`py-1.5 rounded-md transition-colors ${
-                mode === 'register' ? 'bg-white/10 text-white font-medium' : 'text-neutral-400 hover:text-white'
+              className={`py-1.5 rounded-md transition-all ${
+                mode === 'register' ? 'bg-orange-500/10 text-white font-medium border border-orange-500/30' : 'text-neutral-400 hover:text-white'
               }`}
             >
               Create Account

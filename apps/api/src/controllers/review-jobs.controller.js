@@ -3,7 +3,8 @@ const reviewJobService = require('../services/review-job.service');
 async function listByRepository(req, res, next) {
   try {
     const { repositoryId, limit, cursor } = req.query;
-    const jobs = await reviewJobService.listForRepository(req.user.sub, repositoryId, {
+    const userId = req.user ? (req.user.id || req.user.sub) : null;
+    const jobs = await reviewJobService.listForRepository(userId, repositoryId, {
       limit,
       cursor,
     });
@@ -15,7 +16,8 @@ async function listByRepository(req, res, next) {
 
 async function get(req, res, next) {
   try {
-    const job = await reviewJobService.getById(req.user.sub, req.params.id);
+    const userId = req.user ? (req.user.id || req.user.sub) : null;
+    const job = await reviewJobService.getById(userId, req.params.id);
     res.json({ data: job });
   } catch (err) {
     next(err);
@@ -24,7 +26,8 @@ async function get(req, res, next) {
 
 async function cancel(req, res, next) {
   try {
-    const job = await reviewJobService.cancelJob(req.user.sub, req.params.id);
+    const userId = req.user ? (req.user.id || req.user.sub) : null;
+    const job = await reviewJobService.cancelJob(userId, req.params.id);
     res.json({ data: job });
   } catch (err) {
     next(err);
@@ -33,7 +36,8 @@ async function cancel(req, res, next) {
 
 async function remove(req, res, next) {
   try {
-    const result = await reviewJobService.deleteJob(req.user.sub, req.params.id);
+    const userId = req.user ? (req.user.id || req.user.sub) : null;
+    const result = await reviewJobService.deleteJob(userId, req.params.id);
     res.json({ data: result });
   } catch (err) {
     next(err);
@@ -42,7 +46,8 @@ async function remove(req, res, next) {
 
 async function retry(req, res, next) {
   try {
-    const job = await reviewJobService.retryJob(req.user.sub, req.params.id);
+    const userId = req.user ? (req.user.id || req.user.sub) : null;
+    const job = await reviewJobService.retryJob(userId, req.params.id);
     res.json({ data: job });
   } catch (err) {
     next(err);

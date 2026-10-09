@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Activity,
   Layers,
+  ArrowUpRight,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -106,15 +107,14 @@ export default function DashboardLayout({
     { name: 'Repositories', href: '/dashboard/repositories', icon: GitFork },
     { name: 'Review Jobs', href: '/dashboard/reviews', icon: ListChecks },
     ...(isSuperOrAdmin ? [{ name: 'Admin Controls', href: '/dashboard/admin', icon: Sliders }] : []),
-    { name: 'Documentation', href: '/docs', icon: BookOpen },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ];
 
   if (loading) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0a] text-neutral-400 text-xs space-y-3">
-        <div className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center animate-pulse">
-          <GitPullRequest className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-lg border border-orange-500/20 bg-orange-500/10 flex items-center justify-center animate-pulse">
+          <GitPullRequest className="w-4 h-4 text-orange-400" />
         </div>
         <span className="font-mono text-neutral-500">Authenticating workspace session...</span>
       </div>
@@ -137,7 +137,7 @@ export default function DashboardLayout({
 
       {/* FIXED SIDEBAR */}
       <aside
-        className={`w-64 h-screen fixed inset-y-0 left-0 bg-[#0a0a0a] border-r border-white/10 z-50 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
+        className={`w-64 h-screen fixed inset-y-0 left-0 bg-[#0d0f14] border-r border-white/10 z-50 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -146,14 +146,14 @@ export default function DashboardLayout({
             {/* Header Brand */}
             <div className="flex items-center justify-between px-2 py-3 mb-6">
               <Link href="/dashboard" className="flex items-center space-x-3 group">
-                <div className="w-8 h-8 rounded-lg border border-white/15 bg-white/5 flex items-center justify-center text-white group-hover:border-white/30 transition-colors">
-                  <GitPullRequest className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-white group-hover:border-orange-500/60 transition-colors">
+                  <GitPullRequest className="w-4 h-4 text-orange-400" />
                 </div>
                 <div>
                   <span className="font-brand font-semibold text-base tracking-tight text-white block leading-tight">
-                    ReviewPilot<span className="text-[#FF7D0C]">.</span>
+                    ReviewPilot<span className="text-[#F6821F]">.</span>
                   </span>
-                  <span className="font-mono text-[10px] text-neutral-500 tracking-wider uppercase block">
+                  <span className="font-mono text-[10px] text-orange-400/80 tracking-wider uppercase block">
                     Enterprise
                   </span>
                 </div>
@@ -179,13 +179,13 @@ export default function DashboardLayout({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                         isActive
-                          ? 'bg-white/10 text-white border border-white/15'
+                          ? 'bg-[#F6821F]/10 text-white border-l-2 border-[#F6821F] rounded-l-none'
                           : 'text-neutral-400 hover:text-white hover:bg-white/5'
                       }`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-orange-400' : ''}`} />
                       <span>{item.name}</span>
                     </Link>
                   );
@@ -194,11 +194,25 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Bottom Profile & Sign Out (Anchored at Sidebar Bottom) */}
+          {/* Bottom Utilities, Profile & Sign Out */}
           <div className="border-t border-white/10 pt-4 space-y-3">
+            {/* Dedicated Developer Documentation Link */}
+            <a
+              href="/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono text-neutral-400 hover:text-orange-400 hover:bg-orange-500/5 border border-white/5 hover:border-orange-500/20 transition-all group"
+            >
+              <div className="flex items-center space-x-2">
+                <BookOpen className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-400 transition-colors" />
+                <span>Developer Docs</span>
+              </div>
+              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 text-orange-400 transition-opacity" />
+            </a>
+
             {currentUser && (
               <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] text-xs flex items-center space-x-3">
-                <div className="w-7 h-7 rounded-lg border border-white/15 bg-white/5 flex items-center justify-center text-white font-mono font-medium text-xs flex-shrink-0">
+                <div className="w-7 h-7 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-300 font-mono font-medium text-xs flex-shrink-0">
                   {initials}
                 </div>
                 <div className="overflow-hidden flex-1">
@@ -208,7 +222,7 @@ export default function DashboardLayout({
                   <div className="text-[10px] text-neutral-500 truncate font-mono">
                     {currentUser.email}
                   </div>
-                  <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono border border-white/10 bg-white/5 text-neutral-400 uppercase tracking-wider">
+                  <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono border border-orange-500/20 bg-orange-500/5 text-orange-400 uppercase tracking-wider">
                     {currentUser.role}
                   </span>
                 </div>
@@ -248,8 +262,19 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Right Header Status Telemetry */}
-          <div className="flex items-center space-x-4">
+          {/* Right Header Status & Docs Telemetry */}
+          <div className="flex items-center space-x-3">
+            <a
+              href="/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center space-x-1.5 text-[11px] font-mono text-orange-400 px-2.5 py-1 rounded-md border border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/15 hover:border-orange-500/40 transition-colors"
+            >
+              <BookOpen className="w-3 h-3 text-orange-400" />
+              <span>Docs</span>
+              <ArrowUpRight className="w-2.5 h-2.5 opacity-70" />
+            </a>
+
             <div className="hidden sm:flex items-center space-x-2 text-[11px] font-mono text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>All Systems Operational</span>
