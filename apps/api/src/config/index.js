@@ -40,6 +40,8 @@ const config = {
     clientId: process.env.GITHUB_CLIENT_ID || '',
     clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
     appId: process.env.GITHUB_APP_ID || '',
+    slug: process.env.GITHUB_APP_SLUG || '',
+    privateKey: process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_PRIVATE_KEY || '',
     privateKeyPath: process.env.GITHUB_APP_PRIVATE_KEY_PATH || '',
     webhookSecret: process.env.GITHUB_WEBHOOK_SECRET || '',
   },

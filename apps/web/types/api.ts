@@ -86,9 +86,11 @@ export interface Repository {
 
 export interface PullRequestSummary {
   id: string;
-  githubPrNumber: number;
+  githubPrNumber?: number;
+  prNumber?: number;
   title: string;
-  authorLogin: string;
+  authorLogin?: string;
+  author?: string;
   headSha?: string;
   baseSha?: string;
   createdAt?: string;

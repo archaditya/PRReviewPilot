@@ -83,8 +83,22 @@ const reviewPipeline = inngest.createFunction(
 
         // Find the repository to get its ID for graph queries
         const repository = await db.Repository.findOne({
-          include: [{ model: db.Installation, as: 'installation', where: { githubInstallationId: installationId } }],
-          where: { fullName: `${owner}/${repo}` },
+          include: [{
+            model: db.Installation,
+            as: 'installation',
+            where: {
+              [db.Sequelize.Op.or]: [
+                { providerInstallationId: String(installationId) },
+                { id: String(installationId) },
+              ],
+            },
+          }],
+          where: {
+            [db.Sequelize.Op.or]: [
+              { providerFullName: `${owner}/${repo}` },
+              { name: repo },
+            ],
+          },
         });
 
         if (!repository || repository.indexStatus !== 'INDEXED') {

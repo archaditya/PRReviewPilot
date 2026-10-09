@@ -137,6 +137,24 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(20),
       defaultValue: 'active', // 'active', 'paused', 'archived'
     },
+    fullName: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('providerFullName') || this.getDataValue('name');
+      },
+      set(val) {
+        this.setDataValue('providerFullName', val);
+      },
+    },
+    githubRepoId: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('providerRepoId');
+      },
+      set(val) {
+        this.setDataValue('providerRepoId', String(val));
+      },
+    },
   }, {
     tableName: 'repositories',
     underscored: true,

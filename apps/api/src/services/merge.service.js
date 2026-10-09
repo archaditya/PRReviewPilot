@@ -24,15 +24,18 @@ async function mergePullRequest(userId, pullRequestId, { mergeMethod = 'merge' }
   await repositoryService.getForUser(userId, pr.repository.id);
 
   const installation = pr.repository.installation;
-  const [owner, repo] = pr.repository.fullName.split('/');
+  const fullName = pr.repository.fullName || pr.repository.providerFullName || pr.repository.name || '';
+  const [owner, repo] = fullName.includes('/') ? fullName.split('/') : ['', fullName];
+  const instId = installation?.providerInstallationId || installation?.githubInstallationId || installation?.id;
+  const pullNumber = pr.prNumber || pr.githubPrNumber;
 
   let result;
   try {
     result = await githubPr.mergePullRequest({
-      installationId: installation.githubInstallationId,
+      installationId: instId,
       owner,
       repo,
-      pullNumber: pr.githubPrNumber,
+      pullNumber,
       mergeMethod,
     });
   } catch (err) {
@@ -53,7 +56,7 @@ async function mergePullRequest(userId, pullRequestId, { mergeMethod = 'merge' }
   }
 
   logger.info(
-    { pullRequestId, prNumber: pr.githubPrNumber, repo: pr.repository.fullName },
+    { pullRequestId, prNumber: pullNumber, repo: fullName },
     'PR merged via dashboard',
   );
 

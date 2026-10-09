@@ -26,7 +26,7 @@ async function listForRepository(userId, repositoryId, { limit = 20, cursor } = 
         model: db.PullRequest,
         as: 'pullRequest',
         where: { repositoryId },
-        attributes: ['id', 'githubPrNumber', 'title', 'authorLogin', 'headSha'],
+        attributes: ['id', 'prNumber', 'title', 'author', 'headSha', 'status'],
       },
     ],
     order: [['createdAt', 'DESC']],
@@ -141,17 +141,20 @@ async function retryJob(userId, reviewJobId) {
     step: 'retried_by_user',
   });
 
-  const [owner, repoName] = repo.fullName.split('/');
+  const fullName = repo.fullName || repo.providerFullName || repo.name || '';
+  const [owner, repoName] = fullName.includes('/') ? fullName.split('/') : ['', fullName];
+  const instId = installation?.providerInstallationId || installation?.githubInstallationId || installation?.id;
+  const pullNumber = pr.prNumber || pr.githubPrNumber;
 
   // Dispatch Inngest review pipeline event
   await inngest.send({
     name: 'pr/review.requested',
     data: {
       reviewJobId: job.id,
-      installationId: installation.githubInstallationId,
+      installationId: instId,
       owner,
       repo: repoName,
-      pullNumber: pr.githubPrNumber,
+      pullNumber,
     },
   });
 

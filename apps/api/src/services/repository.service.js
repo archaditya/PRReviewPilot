@@ -106,10 +106,13 @@ async function triggerReindex(userId, repositoryId) {
   await repository.update({ indexStatus: 'INDEXING', indexError: null });
   eventBus.emitIndexStatusChange({ repositoryId: repository.id, indexStatus: 'INDEXING' });
 
-  const [owner, repoName] = repository.fullName.split('/');
+  const fullName = repository.fullName || repository.providerFullName || repository.name || '';
+  const [owner, repoName] = fullName.includes('/') ? fullName.split('/') : ['', fullName];
+  const installation = repository.installation;
+  const instId = installation?.providerInstallationId || installation?.githubInstallationId || repository.installationId;
   const jobPayload = {
     repositoryId: repository.id,
-    installationId: repository.installation.githubInstallationId,
+    installationId: instId,
     owner,
     repo: repoName,
     branch: repository.defaultBranch || 'main',
@@ -143,46 +146,15 @@ async function syncForUser(userId) {
   if (!user) return [];
 
   const logger = require('../utils/logger');
-  const { getApp, getInstallationOctokit } = require('../integrations/github/app-auth');
 
   try {
-    const app = await getApp();
-    const { data: appInstallations } = await app.octokit.request('GET /app/installations');
-    for (const inst of appInstallations) {
-      if (
-        inst.account &&
-        (inst.account.id === user.githubUserId ||
-          inst.account.login?.toLowerCase() === user.name?.toLowerCase())
-      ) {
-        const [instRow] = await db.Installation.findOrCreate({
-          where: { githubInstallationId: inst.id },
-          defaults: {
-            githubInstallationId: inst.id,
-            accountLogin: inst.account.login,
-            installedByUserId: user.id,
-          },
-        });
-        if (instRow.installedByUserId !== user.id) {
-          await instRow.update({ installedByUserId: user.id });
-        }
-
-        const octokit = await getInstallationOctokit(inst.id);
-        const { data: repoData } = await octokit.request('GET /installation/repositories', {
-          per_page: 100,
-        });
-
-        for (const repo of (repoData.repositories || [])) {
-          await db.Repository.findOrCreate({
-            where: { githubRepoId: repo.id },
-            defaults: {
-              installationId: instRow.id,
-              githubRepoId: repo.id,
-              fullName: repo.full_name,
-              defaultBranch: repo.default_branch || 'main',
-              isActive: true,
-            },
-          });
-        }
+    const githubAppService = require('./github-app.service');
+    const installations = await db.Installation.findAll({
+      where: { installedByUserId: userId, provider: 'github' },
+    });
+    for (const inst of installations) {
+      if (inst.providerInstallationId) {
+        await githubAppService.syncInstallation(inst.providerInstallationId, userId);
       }
     }
   } catch (err) {

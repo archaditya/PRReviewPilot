@@ -1,6 +1,39 @@
+const fs = require('fs');
 const config = require('../../config');
 
 let appInstance;
+
+function getResolvedPrivateKey() {
+  let privateKey = config.github.privateKey || process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_PRIVATE_KEY;
+  if (!privateKey && config.github.privateKeyPath && fs.existsSync(config.github.privateKeyPath)) {
+    try {
+      privateKey = fs.readFileSync(config.github.privateKeyPath, 'utf8');
+    } catch (e) {
+      // fallback
+    }
+  }
+
+  if (!privateKey) return null;
+
+  privateKey = privateKey.trim();
+  if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+    privateKey = privateKey.slice(1, -1);
+  }
+
+  if (!privateKey.includes('-----BEGIN') && !privateKey.includes('-----BEGIN RSA')) {
+    try {
+      const cleanB64 = privateKey.replace(/\s+/g, '');
+      const decoded = Buffer.from(cleanB64, 'base64').toString('utf8');
+      if (decoded.includes('-----BEGIN')) {
+        privateKey = decoded;
+      }
+    } catch (err) {
+      // ignore and fallback
+    }
+  }
+
+  return privateKey.replace(/\\n/g, '\n');
+}
 
 /**
  * Lazily constructs the App singleton — not built at require-time, so the process can
@@ -12,7 +45,8 @@ let appInstance;
  */
 async function getApp() {
   if (!appInstance) {
-    if (!config.github.appId || !config.github.privateKey) {
+    const privateKey = getResolvedPrivateKey();
+    if (!config.github.appId || !privateKey) {
       throw new Error(
         'GitHub App is not configured — set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY',
       );
@@ -20,23 +54,9 @@ async function getApp() {
 
     const { App } = await import('@octokit/app');
 
-    let privateKey = config.github.privateKey;
-    if (
-      privateKey &&
-      !privateKey.includes('-----BEGIN') &&
-      !privateKey.includes('-----BEGIN RSA')
-    ) {
-      try {
-        privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
-      } catch (err) {
-        // ignore and fallback
-      }
-    }
-
     appInstance = new App({
       appId: config.github.appId,
-      // Support the PEM being stored as a single env-var line with literal "\n" sequences
-      privateKey: privateKey.replace(/\\n/g, '\n'),
+      privateKey,
     });
   }
 

@@ -450,9 +450,9 @@ export default function RepositoryDetailPage() {
           <div className="border border-white/10 rounded-lg overflow-hidden divide-y divide-white/5 bg-[#0c0e12]">
             {jobs.map((job) => {
               const isSelected = selectedJobId === job.id;
-              const prNumber = job.pullRequest?.githubPrNumber || 1;
+              const prNumber = job.pullRequest?.githubPrNumber || job.pullRequest?.prNumber || 1;
               const prTitle = job.pullRequest?.title || 'Pull request review';
-              const author = job.pullRequest?.authorLogin || 'developer';
+              const author = job.pullRequest?.authorLogin || job.pullRequest?.author || 'developer';
 
               return (
                 <div
@@ -508,7 +508,7 @@ export default function RepositoryDetailPage() {
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-orange-400" />
               <h3 className="font-semibold text-sm text-white">
-                Review Pipeline & Flaggings: #{activeJob?.pullRequest?.githubPrNumber || 1} {activeJob?.pullRequest?.title}
+                Review Pipeline & Flaggings: #{activeJob?.pullRequest?.githubPrNumber || activeJob?.pullRequest?.prNumber || 1} {activeJob?.pullRequest?.title}
               </h3>
             </div>
             <button

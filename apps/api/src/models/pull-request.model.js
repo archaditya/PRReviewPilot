@@ -56,6 +56,24 @@ module.exports = (sequelize) => {
       defaultValue: {},
       field: 'diff_summary',
     },
+    githubPrNumber: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('prNumber');
+      },
+      set(val) {
+        this.setDataValue('prNumber', val);
+      },
+    },
+    authorLogin: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('author');
+      },
+      set(val) {
+        this.setDataValue('author', val);
+      },
+    },
   }, {
     tableName: 'pull_requests',
     underscored: true,

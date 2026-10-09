@@ -47,6 +47,15 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(20),
       defaultValue: 'active', // 'active' | 'suspended' | 'deleted'
     },
+    githubInstallationId: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('providerInstallationId');
+      },
+      set(val) {
+        this.setDataValue('providerInstallationId', String(val));
+      },
+    },
   }, {
     tableName: 'installations',
     underscored: true,
