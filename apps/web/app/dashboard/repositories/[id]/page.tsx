@@ -179,18 +179,18 @@ export default function RepositoryDetailPage() {
       </div>
 
       {/* ── Repository Hero Header ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 p-5 sm:p-6 rounded-xl border border-white/10 bg-[#0c0e12]">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-white">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-xl border border-white/10 bg-[#0c0e12]">
+        <div className="space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="font-mono text-base sm:text-lg font-bold tracking-tight text-white truncate max-w-full">
               {repoFullName}
             </h1>
             <IndexStatusBadge status={repository.indexStatus} />
-            <span className="font-mono text-[10px] text-neutral-400 px-2.5 py-0.5 rounded border border-white/10 bg-white/5">
+            <span className="font-mono text-[10px] text-neutral-400 px-2 py-0.5 rounded border border-white/10 bg-white/5">
               branch: {repository.defaultBranch || 'main'}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-neutral-400 max-w-2xl leading-relaxed">
+          <p className="text-xs text-neutral-400 leading-relaxed">
             {repository.isActive !== false
               ? 'Automated PR reviews are active for this repository.'
               : 'Automated reviews are currently paused.'}{' '}
@@ -199,12 +199,12 @@ export default function RepositoryDetailPage() {
         </div>
 
         {/* Aligned Responsive Action Toolbar */}
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           {isIndexing && (
             <button
               onClick={() => resetIndexRepository.mutate()}
               disabled={resetIndexRepository.isPending}
-              className="inline-flex items-center gap-1.5 font-mono text-xs text-neutral-400 hover:text-red-400 px-3 py-2 rounded-lg border border-white/10 bg-white/5 transition-colors"
+              className="h-8 px-3 inline-flex items-center justify-center gap-1.5 font-mono text-xs font-medium text-neutral-300 hover:text-red-400 rounded-lg border border-white/10 hover:border-red-500/30 bg-white/5 hover:bg-red-500/10 transition-all"
               title="Reset stuck indexing state"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -214,17 +214,17 @@ export default function RepositoryDetailPage() {
 
           <Link
             href={`/dashboard/repositories/${repository.id}/chat`}
-            className="inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white transition-colors whitespace-nowrap"
+            className="h-8 px-3 inline-flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg border border-white/10 hover:border-white/20 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-200 hover:text-white transition-all whitespace-nowrap"
           >
             <MessageSquareCode className="h-3.5 w-3.5 text-orange-400" />
             <span>Chat with Repo</span>
-            <ArrowUpRight className="h-3.5 w-3.5 text-neutral-500" />
+            <ArrowUpRight className="h-3 w-3 text-neutral-500" />
           </Link>
 
           <button
             onClick={() => reindexRepository.mutate()}
             disabled={isIndexing || reindexRepository.isPending}
-            className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
+            className="h-8 px-3.5 inline-flex items-center justify-center gap-1.5 text-xs font-semibold rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black shadow-sm transition-all disabled:opacity-50 whitespace-nowrap"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isIndexing || reindexRepository.isPending ? 'animate-spin' : ''}`} />
             <span>{isIndexing ? 'Indexing...' : 'Re-index Graph'}</span>
@@ -233,7 +233,7 @@ export default function RepositoryDetailPage() {
           <button
             onClick={() => updateRepository.mutate(!repository.isActive)}
             disabled={updateRepository.isPending}
-            className="inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 transition-colors whitespace-nowrap"
+            className="h-8 px-3 inline-flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg border border-white/10 hover:border-white/20 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white transition-all whitespace-nowrap"
           >
             {repository.isActive !== false ? 'Pause reviews' : 'Resume reviews'}
           </button>
@@ -242,26 +242,28 @@ export default function RepositoryDetailPage() {
 
       {/* Index Error Alert */}
       {repository.indexError && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs">
-          <div className="flex items-start gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 rounded-xl border border-red-500/25 bg-red-950/20 p-3.5 sm:p-4 text-xs">
+          <div className="flex items-start gap-2.5 min-w-0">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
-            <div>
-              <p className="font-semibold text-red-300 text-sm">Indexing Error</p>
-              <p className="font-mono text-xs text-red-200/90 mt-1">{repository.indexError}</p>
+            <div className="space-y-1 min-w-0">
+              <p className="font-semibold text-red-300 text-xs">Indexing Failure Detected</p>
+              <p className="font-mono text-[11px] text-red-200/85 bg-red-950/50 p-2 rounded-lg border border-red-500/20 break-words leading-relaxed">
+                {repository.indexError}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
             <button
               onClick={() => reindexRepository.mutate()}
               disabled={isIndexing || reindexRepository.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-black font-semibold text-xs transition-colors shadow-sm"
+              className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-black font-semibold text-xs transition-colors shadow-sm whitespace-nowrap"
             >
               <RefreshCw className={`h-3 w-3 ${isIndexing || reindexRepository.isPending ? 'animate-spin' : ''}`} />
               <span>Retry Indexing</span>
             </button>
             <button
               onClick={() => resetIndexRepository.mutate()}
-              className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10 text-neutral-300 text-xs transition-colors"
+              className="h-8 px-3 inline-flex items-center gap-1 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-neutral-300 text-xs transition-colors whitespace-nowrap"
             >
               Clear Error
             </button>
@@ -277,33 +279,39 @@ export default function RepositoryDetailPage() {
             <h2 className="font-semibold text-sm text-white">
               Code Knowledge Graph
             </h2>
-            <span className="font-mono text-[10px] text-orange-400 px-2 py-0.5 rounded border border-orange-500/20 bg-orange-500/5">
-              Neo4j Persistent Graph
+            <span className="font-mono text-[10px] text-orange-400/90 px-2 py-0.5 rounded border border-orange-500/25 bg-orange-500/10">
+              Neo4j Knowledge Graph
             </span>
           </div>
 
           {/* Interactive Graph View Switcher Tabs */}
-          <div className="inline-flex rounded-md bg-neutral-900 p-0.5 border border-white/10 text-xs">
+          <div className="inline-flex rounded-lg bg-neutral-900/90 p-1 border border-white/10 text-xs">
             <button
               onClick={() => setGraphTab('metrics')}
-              className={`px-2.5 py-1 rounded text-xs transition ${
-                graphTab === 'metrics' ? 'bg-orange-500/20 text-orange-300 font-medium border border-orange-500/30' : 'text-neutral-400 hover:text-white'
+              className={`h-7 px-3 rounded-md text-xs font-medium transition-all ${
+                graphTab === 'metrics'
+                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30 shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               Overview
             </button>
             <button
               onClick={() => setGraphTab('visual_graph')}
-              className={`px-2.5 py-1 rounded text-xs transition ${
-                graphTab === 'visual_graph' ? 'bg-orange-500/20 text-orange-300 font-medium border border-orange-500/30' : 'text-neutral-400 hover:text-white'
+              className={`h-7 px-3 rounded-md text-xs font-medium transition-all ${
+                graphTab === 'visual_graph'
+                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30 shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               Interactive AST Graph
             </button>
             <button
               onClick={() => setGraphTab('symbol_explorer')}
-              className={`px-2.5 py-1 rounded text-xs transition ${
-                graphTab === 'symbol_explorer' ? 'bg-orange-500/20 text-orange-300 font-medium border border-orange-500/30' : 'text-neutral-400 hover:text-white'
+              className={`h-7 px-3 rounded-md text-xs font-medium transition-all ${
+                graphTab === 'symbol_explorer'
+                  ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30 shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               Symbol Explorer
@@ -317,44 +325,44 @@ export default function RepositoryDetailPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <button
                 onClick={() => setGraphTab('symbol_explorer')}
-                className="flex flex-col gap-1 p-3.5 rounded-lg border border-white/10 bg-white/[0.02] hover:border-orange-500/40 hover:bg-orange-500/5 transition-all text-left group"
+                className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:border-orange-500/40 hover:bg-orange-500/5 transition-all text-left group"
               >
                 <span className="text-[11px] font-mono text-neutral-400 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><FileCode2 className="h-3.5 w-3.5 text-neutral-400 group-hover:text-orange-400" /> Indexed Files</span>
+                  <span className="flex items-center gap-1.5"><FileCode2 className="h-3.5 w-3.5 text-neutral-400 group-hover:text-orange-400 transition-colors" /> Indexed Files</span>
                   <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 text-orange-400 transition-opacity" />
                 </span>
-                <span className="font-mono text-xl font-semibold text-white group-hover:text-orange-300 transition-colors">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-white group-hover:text-orange-300 transition-colors">
                   {repository.fileCount || 0}
                 </span>
               </button>
 
               <button
                 onClick={() => setGraphTab('symbol_explorer')}
-                className="flex flex-col gap-1 p-3.5 rounded-lg border border-white/10 bg-white/[0.02] hover:border-orange-500/40 hover:bg-orange-500/5 transition-all text-left group"
+                className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:border-orange-500/40 hover:bg-orange-500/5 transition-all text-left group"
               >
                 <span className="text-[11px] font-mono text-neutral-400 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><Code2 className="h-3.5 w-3.5 text-neutral-400 group-hover:text-orange-400" /> Indexed Symbols</span>
+                  <span className="flex items-center gap-1.5"><Code2 className="h-3.5 w-3.5 text-neutral-400 group-hover:text-orange-400 transition-colors" /> Indexed Symbols</span>
                   <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 text-orange-400 transition-opacity" />
                 </span>
-                <span className="font-mono text-xl font-semibold text-white group-hover:text-orange-300 transition-colors">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-white group-hover:text-orange-300 transition-colors">
                   {repository.symbolCount || 0}
                 </span>
               </button>
 
-              <div className="flex flex-col gap-1 p-3.5 rounded-lg border border-white/10 bg-white/[0.02]">
+              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-white/10 bg-white/[0.02]">
                 <span className="text-[11px] font-mono text-neutral-400 flex items-center gap-1.5">
                   <GitBranch className="h-3.5 w-3.5 text-neutral-400" /> Default Branch
                 </span>
-                <span className="font-mono text-xl font-semibold text-white">
+                <span className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
                   {repository.defaultBranch || 'main'}
                 </span>
               </div>
 
-              <div className="flex flex-col gap-1 p-3.5 rounded-lg border border-white/10 bg-white/[0.02]">
+              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-white/10 bg-white/[0.02]">
                 <span className="text-[11px] font-mono text-neutral-400 flex items-center gap-1.5">
                   <GitCommit className="h-3.5 w-3.5 text-neutral-400" /> Indexed Commit
                 </span>
-                <span className="font-mono text-xs font-semibold text-neutral-300 truncate" title={repository.indexedCommitSha || 'None'}>
+                <span className="font-mono text-sm sm:text-base font-semibold text-neutral-200 truncate mt-1" title={repository.indexedCommitSha || 'None'}>
                   {repository.indexedCommitSha ? repository.indexedCommitSha.substring(0, 8) : 'Not indexed'}
                 </span>
               </div>

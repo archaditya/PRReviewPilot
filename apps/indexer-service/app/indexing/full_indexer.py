@@ -103,38 +103,43 @@ async def run_full_index(
             content_hash = compute_content_hash(source)
             language = get_language_for_file(fpath.name) or "unknown"
 
-            # Write File node
-            await upsert_file_node(
-                repo_id=repo_id,
-                file_path=rel_path,
-                language=language,
-                content_hash=content_hash,
-                commit_sha=commit_sha,
-                size_bytes=len(source.encode("utf-8")),
-            )
+            try:
+                # Write File node
+                await upsert_file_node(
+                    repo_id=repo_id,
+                    file_path=rel_path,
+                    language=language,
+                    content_hash=content_hash,
+                    commit_sha=commit_sha,
+                    size_bytes=len(source.encode("utf-8")),
+                )
 
-            # Parse with language-specific parser
-            parser = get_parser_for_file(fpath.name)
-            if not parser:
+                # Parse with language-specific parser
+                parser = get_parser_for_file(fpath.name)
+                if not parser:
+                    continue
+
+                parse_result = parser.parse(source, rel_path, repo_id)
+
+                if parse_result.errors:
+                    for err in parse_result.errors:
+                        logger.warning("parse error in %s: %s", rel_path, err)
+                    total_errors += len(parse_result.errors)
+
+                # Write symbols
+                sym_count = await upsert_symbols(repo_id, parse_result.symbols)
+                total_symbols += sym_count
+
+                # Write DEFINED_IN edges (symbol → file)
+                await upsert_defined_in_edges(repo_id, parse_result.symbols)
+
+                # Write relationship edges
+                edge_count = await upsert_edges(repo_id, parse_result.edges)
+                total_edges += edge_count
+            except Exception as file_exc:
+                logger.warning("failed to parse/index %s: %s", rel_path, file_exc, exc_info=True)
+                total_errors += 1
                 continue
-
-            parse_result = parser.parse(source, rel_path, repo_id)
-
-            if parse_result.errors:
-                for err in parse_result.errors:
-                    logger.warning("parse error in %s: %s", rel_path, err)
-                total_errors += len(parse_result.errors)
-
-            # Write symbols
-            sym_count = await upsert_symbols(repo_id, parse_result.symbols)
-            total_symbols += sym_count
-
-            # Write DEFINED_IN edges (symbol → file)
-            await upsert_defined_in_edges(repo_id, parse_result.symbols)
-
-            # Write relationship edges
-            edge_count = await upsert_edges(repo_id, parse_result.edges)
-            total_edges += edge_count
 
         # Step 5: Get final stats
         stats = await get_repo_stats(repo_id)

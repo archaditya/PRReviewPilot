@@ -285,7 +285,7 @@ class PythonParser(BaseParser):
                         # Extract path from decorator arguments
                         for call in self._walk_type(decorator, "call"):
                             args = call.child_by_field_name("arguments")
-                            if args and args.named_child_count > 0:
+                            if args and args.named_children:
                                 path_arg = args.named_children[0]
                                 path_val = self._node_text(path_arg, source).strip("'\"")
                                 definition = node.child_by_field_name("definition")

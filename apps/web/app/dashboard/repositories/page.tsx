@@ -166,11 +166,11 @@ export default function RepositoriesPage() {
         </div>
 
         {/* Integration Action Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleSyncInstallations}
             disabled={syncing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-neutral-200 text-xs font-medium transition-colors"
+            className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-200 hover:text-white text-xs font-medium transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin text-orange-400' : ''}`} />
             <span>{syncing ? 'Syncing...' : 'Sync GitHub'}</span>
@@ -180,7 +180,7 @@ export default function RepositoriesPage() {
             href="/api/integrations/github/install"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black font-semibold text-xs transition-colors shadow-sm"
+            className="h-8 px-3.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#F6821F] hover:bg-[#ff9538] text-black font-semibold text-xs transition-all shadow-sm"
             title="Install app or add more repositories to existing installation"
           >
             <span>Add Repos on GitHub</span>
@@ -189,7 +189,7 @@ export default function RepositoriesPage() {
 
           <a
             href="/api/auth/login/bitbucket"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 text-xs font-medium transition-colors"
+            className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium transition-all"
           >
             <GitBranch className="w-3.5 h-3.5 text-neutral-400" />
             <span>Connect Bitbucket</span>

@@ -201,7 +201,7 @@ class JavaScriptParser(BaseParser):
             fn_node = node.child_by_field_name("function")
             if fn_node and self._node_text(fn_node, source) == "require":
                 args = node.child_by_field_name("arguments")
-                if args and args.named_child_count > 0:
+                if args and args.named_children:
                     arg = args.named_children[0]
                     import_path = self._node_text(arg, source).strip("'\"")
                     result.edges.append(SymbolEdge(
@@ -299,7 +299,8 @@ class JavaScriptParser(BaseParser):
                 if value_node and value_node.type == "arrow_function":
                     continue
                 name = self._node_text(name_node, source)
-                kind_text = self._node_text(node, source).split()[0] if node.children else "const"
+                tokens = self._node_text(node, source).split()
+                kind_text = tokens[0] if tokens else "const"
                 fqn = self.make_fqn(file_path, name)
 
                 result.symbols.append(SymbolNode(
@@ -334,7 +335,7 @@ class JavaScriptParser(BaseParser):
                 continue
 
             args = call.child_by_field_name("arguments")
-            if not args or args.named_child_count < 1:
+            if not args or not args.named_children:
                 continue
             path_arg = args.named_children[0]
             path_pattern = self._node_text(path_arg, source).strip("'\"")

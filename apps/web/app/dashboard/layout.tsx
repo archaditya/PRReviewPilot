@@ -20,6 +20,8 @@ import {
   ArrowUpRight,
   Users,
   Terminal,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -39,6 +41,7 @@ export default function DashboardLayout({
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,53 +140,67 @@ export default function DashboardLayout({
       {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden transition-opacity"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
-      {/* FIXED SIDEBAR */}
+      {/* SIDEBAR: Responsive & Collapsible */}
       <aside
-        className={`w-64 h-screen fixed inset-y-0 left-0 bg-[#0d0f14] border-r border-white/10 z-50 flex flex-col justify-between transition-transform duration-200 ease-in-out md:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`h-screen fixed inset-y-0 left-0 bg-[#0d0f14] border-r border-white/10 z-50 flex flex-col justify-between transition-all duration-200 ease-in-out ${
+          mobileMenuOpen
+            ? 'translate-x-0 w-72'
+            : '-translate-x-full md:translate-x-0'
+        } ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'}`}
       >
-        <div className="flex flex-col h-full justify-between p-4 overflow-y-auto">
+        <div className="flex flex-col h-full justify-between p-3 sm:p-4 overflow-y-auto overflow-x-hidden">
           <div>
             {/* Header Brand */}
-            <div className="flex items-center justify-between px-2 py-3 mb-6">
-              <Link href="/dashboard" className="flex items-center space-x-3 group">
-                <div className="w-8 h-8 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-white group-hover:border-orange-500/60 transition-colors">
+            <div className={`flex items-center mb-5 ${sidebarCollapsed ? 'justify-center py-2' : 'justify-between px-2 py-2'}`}>
+              <Link
+                href="/dashboard"
+                className="flex items-center space-x-3 group"
+                title="ReviewPilot Enterprise"
+              >
+                <div className="w-8 h-8 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-white group-hover:border-orange-500/60 transition-colors shrink-0">
                   <GitPullRequest className="w-4 h-4 text-orange-400" />
                 </div>
-                <div>
-                  <span className="font-brand font-semibold text-base tracking-tight text-white block leading-tight">
-                    ReviewPilot<span className="text-[#F6821F]">.</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-orange-400/80 tracking-wider uppercase block">
-                    Enterprise
-                  </span>
-                </div>
+                {!sidebarCollapsed && (
+                  <div>
+                    <span className="font-brand font-semibold text-sm sm:text-base tracking-tight text-white block leading-tight">
+                      ReviewPilot<span className="text-[#F6821F]">.</span>
+                    </span>
+                    <span className="font-mono text-[9px] text-orange-400/80 tracking-wider uppercase block">
+                      Enterprise
+                    </span>
+                  </div>
+                )}
               </Link>
+              {/* Close button for mobile drawer */}
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="md:hidden text-neutral-400 hover:text-white p-1"
+                aria-label="Close menu"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* SIDEBAR NAVIGATION: Admin gets EXCLUSIVELY Admin Console, regular user gets Workspace */}
+            {/* SIDEBAR NAVIGATION */}
             {isSuperOrAdmin ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-3 mb-3">
-                  <span className="font-mono text-[10px] font-bold text-orange-400 uppercase tracking-wider">
-                    Admin Operations
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-[#F6821F]/20 text-[#F6821F] border border-[#F6821F]/30 uppercase">
-                    {currentUser?.role}
-                  </span>
-                </div>
+              <div className="space-y-1.5">
+                {!sidebarCollapsed ? (
+                  <div className="flex items-center justify-between px-2.5 mb-2.5">
+                    <span className="font-mono text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                      Admin Operations
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#F6821F]/20 text-[#F6821F] border border-[#F6821F]/30 uppercase">
+                      {currentUser?.role}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="h-px bg-white/10 my-2" />
+                )}
                 <nav className="space-y-1">
                   {[
                     { name: 'System Monitoring & Health', href: '/dashboard/admin?tab=monitoring', icon: Activity },
@@ -197,10 +214,14 @@ export default function DashboardLayout({
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-mono font-medium text-neutral-300 hover:text-white hover:bg-white/5 transition-all"
+                        title={sidebarCollapsed ? item.name : undefined}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center rounded-lg text-xs font-mono font-medium text-neutral-300 hover:text-white hover:bg-white/5 transition-all ${
+                          sidebarCollapsed ? 'justify-center p-2.5' : 'space-x-3 px-3 py-2'
+                        }`}
                       >
                         <Icon className="w-4 h-4 shrink-0 text-orange-400/80" />
-                        <span>{item.name}</span>
+                        {!sidebarCollapsed && <span className="truncate">{item.name}</span>}
                       </Link>
                     );
                   })}
@@ -208,9 +229,13 @@ export default function DashboardLayout({
               </div>
             ) : (
               <div className="space-y-1">
-                <span className="font-mono text-[10px] font-medium text-neutral-500 uppercase tracking-wider px-3 mb-2 block">
-                  Workspace Menu
-                </span>
+                {!sidebarCollapsed ? (
+                  <span className="font-mono text-[10px] font-medium text-neutral-500 uppercase tracking-wider px-2.5 mb-2 block">
+                    Workspace Menu
+                  </span>
+                ) : (
+                  <div className="h-px bg-white/10 my-2" />
+                )}
                 <nav className="space-y-1">
                   {workspaceNavItems.map((item) => {
                     const Icon = item.icon;
@@ -219,14 +244,18 @@ export default function DashboardLayout({
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        title={sidebarCollapsed ? item.name : undefined}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center rounded-lg text-xs font-medium transition-all ${
+                          sidebarCollapsed ? 'justify-center p-2.5' : 'space-x-3 px-3 py-2'
+                        } ${
                           isActive
-                            ? 'bg-[#F6821F]/10 text-white border-l-2 border-[#F6821F] rounded-l-none'
+                            ? 'bg-[#F6821F]/15 text-white border-l-2 border-[#F6821F] rounded-l-none font-semibold'
                             : 'text-neutral-400 hover:text-white hover:bg-white/5'
                         }`}
                       >
                         <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-orange-400' : ''}`} />
-                        <span>{item.name}</span>
+                        {!sidebarCollapsed && <span className="truncate">{item.name}</span>}
                       </Link>
                     );
                   })}
@@ -235,90 +264,138 @@ export default function DashboardLayout({
             )}
           </div>
 
-          {/* Bottom Utilities, Profile & Sign Out */}
-          <div className="border-t border-white/10 pt-4 space-y-3">
-            {/* Dedicated Developer Documentation Link */}
+          {/* Bottom Utilities, Profile & Collapse Toggle */}
+          <div className="border-t border-white/10 pt-3 space-y-2">
+            {/* Desktop Sidebar Collapse Toggle */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className={`hidden md:flex items-center rounded-lg text-xs font-mono text-neutral-400 hover:text-white hover:bg-white/5 transition-all w-full ${
+                sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-1.5'
+              }`}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {!sidebarCollapsed && <span className="text-[11px] text-neutral-400">Collapse sidebar</span>}
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4 text-orange-400" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4 text-neutral-400" />
+              )}
+            </button>
+
+            {/* Developer Docs */}
             <a
               href="/docs"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono text-neutral-400 hover:text-orange-400 hover:bg-orange-500/5 border border-white/5 hover:border-orange-500/20 transition-all group"
+              title="Developer Documentation"
+              className={`flex items-center rounded-lg text-xs font-mono text-neutral-400 hover:text-orange-400 hover:bg-orange-500/5 border border-white/5 hover:border-orange-500/20 transition-all ${
+                sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-1.5'
+              }`}
             >
               <div className="flex items-center space-x-2">
-                <BookOpen className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-400 transition-colors" />
-                <span>Developer Docs</span>
+                <BookOpen className="w-3.5 h-3.5 text-neutral-500 group-hover:text-orange-400 transition-colors shrink-0" />
+                {!sidebarCollapsed && <span>Developer Docs</span>}
               </div>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 text-orange-400 transition-opacity" />
+              {!sidebarCollapsed && (
+                <ArrowUpRight className="w-3 h-3 opacity-60 text-orange-400" />
+              )}
             </a>
 
+            {/* User Profile */}
             {currentUser && (
-              <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] text-xs flex items-center space-x-3">
-                <div className="w-7 h-7 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-300 font-mono font-medium text-xs flex-shrink-0">
+              <div
+                className={`rounded-xl border border-white/10 bg-white/[0.02] text-xs flex items-center ${
+                  sidebarCollapsed ? 'justify-center p-1.5' : 'p-2.5 space-x-2.5'
+                }`}
+                title={`${currentUser.name || currentUser.email} (${currentUser.role})`}
+              >
+                <div className="w-7 h-7 rounded-lg border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-300 font-mono font-medium text-xs shrink-0">
                   {initials}
                 </div>
-                <div className="overflow-hidden flex-1">
-                  <div className="font-medium text-white truncate text-xs">
-                    {currentUser.name || currentUser.email}
+                {!sidebarCollapsed && (
+                  <div className="overflow-hidden flex-1 min-w-0">
+                    <div className="font-medium text-white truncate text-xs">
+                      {currentUser.name || currentUser.email}
+                    </div>
+                    <div className="text-[10px] text-neutral-500 truncate font-mono">
+                      {currentUser.email}
+                    </div>
+                    <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[8px] font-mono border border-orange-500/20 bg-orange-500/5 text-orange-400 uppercase tracking-wider">
+                      {currentUser.role}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-neutral-500 truncate font-mono">
-                    {currentUser.email}
-                  </div>
-                  <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono border border-orange-500/20 bg-orange-500/5 text-orange-400 uppercase tracking-wider">
-                    {currentUser.role}
-                  </span>
-                </div>
+                )}
               </div>
             )}
 
+            {/* Sign Out */}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-400 hover:text-red-400 hover:bg-red-500/5 border border-white/10 hover:border-red-500/20 transition-colors"
+              title="Sign Out"
+              className={`w-full flex items-center rounded-lg text-xs font-medium text-neutral-400 hover:text-red-400 hover:bg-red-500/5 border border-white/10 hover:border-red-500/20 transition-colors ${
+                sidebarCollapsed ? 'justify-center p-2' : 'justify-center space-x-2 px-3 py-1.5'
+              }`}
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              <LogOut className="w-3.5 h-3.5 shrink-0" />
+              {!sidebarCollapsed && <span>Sign Out</span>}
             </button>
           </div>
         </div>
       </aside>
 
       {/* MAIN CONTENT WRAPPER */}
-      <div className="flex-1 md:pl-64 flex flex-col h-screen overflow-hidden">
+      <div
+        className={`flex-1 flex flex-col h-screen overflow-hidden transition-[padding] duration-200 ease-in-out ${
+          sidebarCollapsed ? 'md:pl-16' : 'md:pl-64'
+        }`}
+      >
         {/* FIXED STICKY TOP NAVBAR */}
-        <header className="h-14 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between z-30 flex-shrink-0 select-none">
-          <div className="flex items-center space-x-3">
+        <header className="h-14 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md px-4 sm:px-6 lg:px-8 flex items-center justify-between z-30 shrink-0 select-none">
+          <div className="flex items-center space-x-2.5">
             {/* Hamburger Button for Mobile */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5"
+              className="md:hidden text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 border border-white/10"
+              aria-label="Open navigation menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4" />
+            </button>
+
+            {/* Desktop Quick Sidebar Collapse Button in Navbar */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden md:inline-flex text-neutral-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4 text-orange-400" /> : <PanelLeftClose className="w-4 h-4 text-neutral-500" />}
             </button>
 
             <div className="flex items-center space-x-2 text-xs">
-              <span className="text-neutral-500">Mode:</span>
+              <span className="text-neutral-500 hidden sm:inline">Mode:</span>
               {pathname.startsWith('/dashboard/admin') ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium px-2.5 py-1 rounded-md bg-[#F6821F]/15 border border-[#F6821F]/30 text-[#F6821F] flex items-center gap-1.5 font-mono text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white font-medium px-2 py-0.5 rounded-md bg-[#F6821F]/15 border border-[#F6821F]/30 text-[#F6821F] flex items-center gap-1.5 font-mono text-xs">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Admin Control Center</span>
+                    <span className="hidden sm:inline">Admin Control Center</span>
+                    <span className="sm:hidden">Admin</span>
                   </span>
                   <Link
                     href="/dashboard"
-                    className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-neutral-400 hover:text-white px-2 py-0.5 rounded border border-white/10 hover:border-white/20 bg-white/5 transition-colors"
+                    className="hidden lg:inline-flex items-center gap-1 text-[11px] font-mono text-neutral-400 hover:text-white px-2 py-0.5 rounded border border-white/10 hover:border-white/20 bg-white/5 transition-colors"
                   >
                     <span>Switch to Dev Workspace</span>
                   </Link>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium px-2.5 py-1 rounded-md bg-white/5 border border-white/10 flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white font-medium px-2 py-0.5 rounded-md bg-white/5 border border-white/10 flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-neutral-400" />
-                    <span>{currentUser?.name || "Developer Workspace"}</span>
+                    <span className="truncate max-w-[140px] sm:max-w-none">{currentUser?.name || "Developer Workspace"}</span>
                   </span>
                   {isSuperOrAdmin && (
                     <Link
                       href="/dashboard/admin"
-                      className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono text-orange-400 hover:text-orange-300 px-2 py-0.5 rounded border border-orange-500/20 hover:border-orange-500/40 bg-orange-500/5 transition-colors"
+                      className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-orange-400 hover:text-orange-300 px-2 py-0.5 rounded border border-orange-500/20 hover:border-orange-500/40 bg-orange-500/5 transition-colors"
                     >
                       <ShieldCheck className="w-3 h-3" />
                       <span>Admin Console</span>
@@ -330,7 +407,7 @@ export default function DashboardLayout({
           </div>
 
           {/* Right Header Status & Docs Telemetry */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             <a
               href="/docs"
               target="_blank"
@@ -342,12 +419,15 @@ export default function DashboardLayout({
               <ArrowUpRight className="w-2.5 h-2.5 opacity-70" />
             </a>
 
-            <div className="hidden sm:flex items-center space-x-2 text-[11px] font-mono text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5">
+            <div className="hidden sm:flex items-center space-x-1.5 text-[11px] font-mono text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>All Systems Operational</span>
             </div>
 
-            <div className="w-7 h-7 rounded-full border border-white/20 bg-white/10 text-white font-mono text-xs flex items-center justify-center">
+            <div
+              className="w-7 h-7 rounded-full border border-white/20 bg-white/10 text-white font-mono text-xs flex items-center justify-center shrink-0"
+              title={currentUser?.email}
+            >
               {initials}
             </div>
           </div>
@@ -355,17 +435,17 @@ export default function DashboardLayout({
 
         {/* SCROLLABLE PAGE VIEWPORT */}
         <main className="flex-1 overflow-y-auto bg-[#0a0a0a]">
-          <div className="p-6 sm:p-8 max-w-6xl w-full mx-auto space-y-8 min-h-[calc(100vh-7rem)]">
+          <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6 sm:space-y-8 min-h-[calc(100vh-7rem)]">
             {children}
           </div>
 
           {/* ENTERPRISE FOOTER */}
-          <footer className="border-t border-white/10 py-6 px-8 text-xs text-neutral-500 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-3 max-w-6xl mx-auto">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="w-4 h-4 text-neutral-400" />
+          <footer className="border-t border-white/10 py-5 px-6 sm:px-8 text-xs text-neutral-500 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-2.5 max-w-6xl mx-auto">
+            <div className="flex items-center space-x-2 text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" />
               <span>ReviewPilot Enterprise • Automated AI Code Review Engine</span>
             </div>
-            <div className="text-[11px] font-mono text-neutral-500">
+            <div className="text-[10px] font-mono text-neutral-500">
               Multi-tenant architecture with real-time GitHub & Bitbucket webhooks
             </div>
           </footer>
