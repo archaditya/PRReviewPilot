@@ -15,6 +15,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { LandingHeader } from '@/components/landing-header';
+import { LandingHeroCta } from '@/components/landing-hero-cta';
 
 export default function HomePage() {
   return (
@@ -42,24 +43,8 @@ export default function HomePage() {
             ReviewPilot maps your abstract syntax tree in Neo4j to identify callers, callees, and broken contracts across pull requests with deep graph blast radius analysis.
           </p>
 
-          {/* Action Buttons */}
-          <div className="mt-7 flex flex-col sm:flex-row items-center gap-3">
-            <Link
-              href="/login"
-              className="btn-asym text-xs w-full sm:w-auto"
-            >
-              <span>Connect repository</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
-
-            <Link
-              href="/docs"
-              className="btn-asym-mirror text-xs w-full sm:w-auto"
-            >
-              <span>Read integration guide</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          {/* Action Buttons (Dynamic Session-Aware) */}
+          <LandingHeroCta />
 
           {/* Provider compatibility indicator */}
           <div className="mt-6 flex items-center space-x-2 text-[11px] font-mono text-neutral-500">

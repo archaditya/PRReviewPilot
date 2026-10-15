@@ -24,7 +24,15 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      if (window.location.pathname !== '/login') {
+      const pathname = window.location.pathname;
+      const isPublicRoute =
+        pathname === '/' ||
+        pathname === '/login' ||
+        pathname.startsWith('/docs') ||
+        pathname.startsWith('/forgot-password') ||
+        pathname.startsWith('/reset-password');
+
+      if (!isPublicRoute) {
         window.location.href = '/login';
       }
     }
