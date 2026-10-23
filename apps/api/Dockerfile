@@ -1,11 +1,11 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 WORKDIR /app
 COPY package.json ./
 RUN npm install
 COPY . .
 
 # Production stage
-FROM node:20-alpine AS prod
+FROM node:22-alpine AS prod
 RUN apk add --no-cache curl su-exec && \
     addgroup -S app && adduser -S app -G app
 WORKDIR /app
