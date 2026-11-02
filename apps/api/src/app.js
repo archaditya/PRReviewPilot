@@ -18,6 +18,7 @@ const reviewJobsRoutes = require('./routes/review-jobs.routes');
 const webhookRoutes = require('./routes/webhook.routes');
 const adminRoutes = require('./routes/admin.routes');
 const integrationRoutes = require('./routes/integration.routes');
+const userRoutes = require('./routes/user.routes');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/review-jobs', reviewJobsRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/integrations', integrationRoutes);
+app.use('/api/users', userRoutes);
 
 // Inngest endpoint for background indexing and review orchestration
 app.use('/api/inngest', serve({ client: inngest, functions }));

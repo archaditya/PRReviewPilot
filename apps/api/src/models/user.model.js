@@ -90,6 +90,28 @@ module.exports = (sequelize) => {
       allowNull: true,
       field: 'last_login_at',
     },
+    consentedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'consented_at',
+    },
+    consentIp: {
+      type: DataTypes.STRING(45),
+      allowNull: true,
+      field: 'consent_ip',
+    },
+    termsVersion: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: '2026.1',
+      field: 'terms_version',
+    },
+    isOver18: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: 'is_over_18',
+    },
   }, {
     tableName: 'users',
     underscored: true,

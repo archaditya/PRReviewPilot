@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { LandingHeader } from '@/components/landing-header';
 import { LandingHeroCta } from '@/components/landing-hero-cta';
+import { CookiePreferencesButton } from '@/components/cookie-preferences-button';
 
 export default function HomePage() {
   return (
@@ -238,25 +239,38 @@ export default function HomePage() {
       </main>
 
       {/* ── Enterprise Footer ── */}
-      <footer className="border-t border-white/10 py-6 px-6 bg-[#0c0e12]">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
-          <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 rounded border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-400">
-              <GitPullRequest className="w-3 h-3" />
+      <footer className="border-t border-white/10 py-8 px-6 bg-[#0c0e12]">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
+            <div className="flex items-center space-x-2">
+              <div className="w-5 h-5 rounded border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-400">
+                <GitPullRequest className="w-3 h-3" />
+              </div>
+              <span className="font-brand font-medium text-white">ReviewPilot<span className="text-[#F6821F]">.</span></span>
+              <span>&bull;</span>
+              <span className="font-mono text-[11px]">Automated Code Review Engine</span>
             </div>
-            <span className="font-brand font-medium text-white">ReviewPilot<span className="text-[#F6821F]">.</span></span>
-            <span>&bull;</span>
-            <span className="font-mono text-[11px]">Automated Code Review Engine</span>
+
+            <div className="flex items-center space-x-5 font-mono text-[11px] flex-wrap justify-center">
+              <Link href="/docs" className="text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1">
+                <span>Developer Docs</span>
+                <ArrowUpRight className="w-3 h-3 opacity-70" />
+              </Link>
+              <Link href="/docs/github-setup" className="hover:text-white transition-colors">GitHub Setup</Link>
+              <Link href="/docs/bitbucket-setup" className="hover:text-white transition-colors">Bitbucket Setup</Link>
+              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-5 font-mono text-[11px]">
-            <Link href="/docs" className="text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1">
-              <span>Developer Docs</span>
-              <ArrowUpRight className="w-3 h-3 opacity-70" />
-            </Link>
-            <Link href="/docs/github-setup" className="hover:text-white transition-colors">GitHub Setup</Link>
-            <Link href="/docs/bitbucket-setup" className="hover:text-white transition-colors">Bitbucket Setup</Link>
-            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+          {/* Legal Compliance Sub-Bar */}
+          <div className="border-t border-white/5 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-neutral-500 font-mono text-[11px]">
+            <span>&copy; {new Date().getFullYear()} ReviewPilot &bull; DPDP Act 2023 Compliant</span>
+            <div className="flex items-center space-x-4 flex-wrap justify-center">
+              <Link href="/privacy" className="hover:text-neutral-300 transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-neutral-300 transition-colors">Terms of Service</Link>
+              <Link href="/grievance" className="hover:text-neutral-300 transition-colors">Grievance Officer</Link>
+              <CookiePreferencesButton />
+            </div>
           </div>
         </div>
       </footer>

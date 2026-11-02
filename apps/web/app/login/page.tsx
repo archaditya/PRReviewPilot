@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { GitPullRequest, GitBranch, ArrowLeft, Mail, Lock, User, ArrowUpRight, Eye, EyeOff } from 'lucide-react';
+import { CookiePreferencesButton } from '@/components/cookie-preferences-button';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -186,6 +187,20 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {mode === 'register' && (
+              <div className="text-[11px] text-neutral-400 font-sans leading-relaxed pt-1">
+                By creating an account, you affirm that you are at least{' '}
+                <strong className="text-white">18 years of age</strong> and agree to ReviewPilot&apos;s{' '}
+                <Link href="/terms" target="_blank" className="text-orange-400 hover:text-orange-300 underline">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy" target="_blank" className="text-orange-400 hover:text-orange-300 underline">
+                  Privacy Policy
+                </Link>.
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -230,14 +245,17 @@ export default function LoginPage() {
 
       {/* ── Consistent Footer ── */}
       <footer className="border-t border-white/10 py-6 px-8 text-center text-xs text-neutral-500 bg-[#0a0a0a]">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px]">
+          <div className="flex items-center space-x-2 justify-center">
             <span className="font-brand font-medium text-white">ReviewPilot<span className="text-[#FF7D0C]">.</span></span>
             <span>&bull;</span>
-            <span className="font-mono text-[11px]">Automated AI Code Review Engine</span>
+            <span className="text-neutral-500">DPDP Act 2023 Compliant</span>
           </div>
-          <div className="text-[11px] font-mono text-neutral-500">
-            Multi-tenant architecture with real-time GitHub & Bitbucket webhooks
+          <div className="flex items-center space-x-4 flex-wrap justify-center text-neutral-400">
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/grievance" className="hover:text-white transition-colors">Grievance Officer</Link>
+            <CookiePreferencesButton />
           </div>
         </div>
       </footer>

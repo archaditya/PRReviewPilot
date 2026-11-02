@@ -61,6 +61,10 @@ class AuthService {
       emailVerified: false,
       role,
       status: 'active',
+      consentedAt: new Date(),
+      consentIp: ip || null,
+      termsVersion: '2026.1',
+      isOver18: true,
     });
 
     const org = await this.ensureDefaultOrganization(user);
@@ -135,6 +139,9 @@ class AuthService {
           githubUsername: profile.username,
           githubAccessToken: accessToken,
           role,
+          consentedAt: new Date(),
+          termsVersion: '2026.1',
+          isOver18: true,
         });
       }
     } else {
@@ -190,6 +197,9 @@ class AuthService {
           bitbucketAccessToken: accessToken,
           bitbucketRefreshToken: refreshToken,
           role,
+          consentedAt: new Date(),
+          termsVersion: '2026.1',
+          isOver18: true,
         });
       }
     } else {

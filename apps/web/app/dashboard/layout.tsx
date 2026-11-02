@@ -440,13 +440,26 @@ export default function DashboardLayout({
           </div>
 
           {/* ENTERPRISE FOOTER */}
-          <footer className="border-t border-white/10 py-5 px-6 sm:px-8 text-xs text-neutral-500 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-2.5 max-w-6xl mx-auto">
-            <div className="flex items-center space-x-2 text-[11px]">
+          <footer className="border-t border-white/10 py-5 px-6 sm:px-8 text-xs text-neutral-500 bg-transparent flex flex-col sm:flex-row items-center justify-between gap-3 max-w-6xl mx-auto font-mono text-[11px]">
+            <div className="flex items-center space-x-2">
               <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" />
-              <span>ReviewPilot Enterprise • Automated AI Code Review Engine</span>
+              <span>ReviewPilot Enterprise &bull; DPDP Act 2023 Compliant</span>
             </div>
-            <div className="text-[10px] font-mono text-neutral-500">
-              Multi-tenant architecture with real-time GitHub & Bitbucket webhooks
+            <div className="flex items-center space-x-4 flex-wrap justify-center text-neutral-400">
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <Link href="/grievance" className="hover:text-white transition-colors">Grievance Officer</Link>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event('open-cookie-preferences'));
+                  }
+                }}
+                className="hover:text-white transition-colors cursor-pointer"
+              >
+                Cookie Preferences
+              </button>
             </div>
           </footer>
         </main>

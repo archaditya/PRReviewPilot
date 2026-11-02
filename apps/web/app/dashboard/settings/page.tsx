@@ -1,11 +1,81 @@
 'use client';
 
 import { useState } from 'react';
-import { GitPullRequest, GitBranch, Key, Users, Shield, Check, Copy, Lock, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import {
+  GitPullRequest,
+  GitBranch,
+  Key,
+  Users,
+  Shield,
+  Check,
+  Copy,
+  Lock,
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Download,
+  Trash2,
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react';
 
 export default function SettingsPage() {
   const [apiKeyCreated, setApiKeyCreated] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Data Privacy & Erasure State (DPDP Act, 2023)
+  const [exportLoading, setExportLoading] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleExportData = async () => {
+    try {
+      setExportLoading(true);
+      const res = await fetch('/api/users/me/export', { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to export personal data');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reviewpilot-user-data.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert(err.message || 'Error downloading personal data');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeleteError(null);
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmationEmail: deleteEmail, password: deletePassword }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete account');
+      }
+      alert('Your account and personal data have been permanently erased under the DPDP Act.');
+      window.location.href = '/login';
+    } catch (err: any) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Change Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -261,6 +331,136 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* 4. Data Privacy & Statutory Governance (DPDP Act, 2023) */}
+      <div className="card-chai p-6 space-y-6 border border-white/10">
+        <div className="flex items-center space-x-2">
+          <Shield className="w-5 h-5 text-orange-400" />
+          <h3 className="font-montserrat font-semibold text-base text-white">
+            Data Privacy &amp; Statutory Rights (DPDP Act, 2023)
+          </h3>
+        </div>
+        <p className="text-xs text-neutral-400 leading-relaxed font-sans">
+          Under India&apos;s Digital Personal Data Protection Act, 2023, you retain the statutory right to access an immutable summary of your personal data and to request permanent erasure of your account and AST knowledge graph records.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 font-sans">
+          {/* Export Personal Data */}
+          <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col justify-between space-y-3">
+            <div className="space-y-1">
+              <span className="font-semibold text-white text-xs flex items-center gap-1.5">
+                <Download className="w-4 h-4 text-orange-400" />
+                <span>Export My Data (JSON)</span>
+              </span>
+              <p className="text-neutral-400 text-[11px] leading-relaxed">
+                Download a complete, machine-readable JSON archive of your personal credentials, organizations, and review telemetry.
+              </p>
+            </div>
+            <button
+              onClick={handleExportData}
+              disabled={exportLoading}
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white font-medium text-xs transition-colors flex items-center justify-center space-x-1.5 disabled:opacity-50"
+            >
+              <Download className={`w-3.5 h-3.5 ${exportLoading ? 'animate-bounce' : ''}`} />
+              <span>{exportLoading ? 'Generating Export...' : 'Download Data Archive'}</span>
+            </button>
+          </div>
+
+          {/* Right to Erasure */}
+          <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 flex flex-col justify-between space-y-3">
+            <div className="space-y-1">
+              <span className="font-semibold text-red-400 text-xs flex items-center gap-1.5">
+                <Trash2 className="w-4 h-4" />
+                <span>Right to Erasure (Delete Account)</span>
+              </span>
+              <p className="text-neutral-400 text-[11px] leading-relaxed">
+                Permanently purge your account, revoke all API sessions, and wipe connected repository AST graphs from Neo4j.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setDeleteModalOpen(true);
+                setDeleteError(null);
+                setDeleteEmail('');
+                setDeletePassword('');
+              }}
+              className="px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-300 font-medium text-xs transition-colors flex items-center justify-center space-x-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete My Account</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Account Deletion Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="max-w-md w-full card-chai p-6 space-y-5 border border-red-500/30 bg-[#0e1117] shadow-2xl">
+            <div className="flex items-center space-x-2 text-red-400">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              <h3 className="font-montserrat font-bold text-base text-white">Permanently Delete Account?</h3>
+            </div>
+
+            <p className="text-xs text-neutral-300 leading-relaxed font-sans">
+              This action is <strong className="text-red-400">permanent and irreversible</strong>. Your user account, authentication sessions, and Neo4j AST knowledge graph symbols will be completely erased.
+            </p>
+
+            {deleteError && (
+              <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-xs font-mono">
+                {deleteError}
+              </div>
+            )}
+
+            <form onSubmit={handleDeleteAccount} className="space-y-3 font-sans">
+              <div>
+                <label className="block text-[11px] font-mono text-neutral-400 mb-1">
+                  Type your email address to confirm:
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="your-email@example.com"
+                  value={deleteEmail}
+                  onChange={(e) => setDeleteEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-neutral-900 border border-white/10 text-white text-xs placeholder:text-neutral-500 focus:outline-none focus:border-red-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-neutral-400 mb-1">
+                  Account Password (if set):
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-neutral-900 border border-white/10 text-white text-xs placeholder:text-neutral-500 focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalOpen(false)}
+                  disabled={deleting}
+                  className="px-3.5 py-1.5 rounded-lg border border-white/10 text-xs text-neutral-300 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deleting || !deleteEmail.trim()}
+                  className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-all disabled:opacity-40"
+                >
+                  {deleting ? 'Erasing Data...' : 'Confirm Account Erasure'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
