@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const db = require('../models');
 const reviewService = require('../services/review.service');
+const ApiResponse = require('../utils/api-response');
+const QueryParser = require('../utils/query-parser');
 
 class ReviewController {
   // Helper: Get all active organization IDs for the authenticated user
@@ -64,22 +66,45 @@ class ReviewController {
     }
   }
 
-  // GET /api/reviews?repoId=...&orgId=...
+  // GET /api/reviews?repoId=...&orgId=...&page=1&limit=10&search=...&status=...&riskLevel=...
   async listReviews(req, res, next) {
     try {
-      const { repoId, orgId, status } = req.query;
+      const { repoId, orgId, search, q } = req.query;
       const user = req.user;
 
       const allowedOrgIds = await this.getUserOrgIds(user.id, orgId);
       if (!allowedOrgIds || allowedOrgIds.length === 0) {
-        return res.json({ success: true, reviews: [] });
+        return ApiResponse.paginated(res, {
+          data: [],
+          total: 0,
+          page: 1,
+          limit: 10,
+          resourceKey: 'reviews',
+        });
       }
+
+      const { page, limit, offset } = QueryParser.parsePagination(req.query, 10, 100);
 
       const where = {};
       if (repoId) where.repositoryId = repoId;
-      if (status) where.status = status;
 
-      const jobs = await db.ReviewJob.findAll({
+      const filters = QueryParser.parseFilters(req.query, {
+        status: 'status',
+        riskLevel: 'riskLevel',
+      });
+      Object.assign(where, filters);
+
+      const searchTerm = search || q;
+      const prWhere = {};
+      if (searchTerm && searchTerm.trim()) {
+        const term = `%${searchTerm.trim()}%`;
+        prWhere[Op.or] = [
+          { title: { [Op.iLike]: term } },
+          { author: { [Op.iLike]: term } },
+        ];
+      }
+
+      const { rows: jobs, count: total } = await db.ReviewJob.findAndCountAll({
         where,
         include: [
           {
@@ -95,13 +120,23 @@ class ReviewController {
             model: db.PullRequest,
             as: 'pullRequest',
             attributes: ['title', 'author', 'baseBranch', 'headBranch'],
+            where: Object.keys(prWhere).length > 0 ? prWhere : undefined,
+            required: Object.keys(prWhere).length > 0,
           },
         ],
         order: [['createdAt', 'DESC']],
-        limit: 50,
+        limit,
+        offset,
       });
 
-      return res.json({ success: true, reviews: jobs });
+      return ApiResponse.paginated(res, {
+        data: jobs,
+        total,
+        page,
+        limit,
+        message: 'Review jobs retrieved successfully',
+        resourceKey: 'reviews',
+      });
     } catch (err) {
       next(err);
     }

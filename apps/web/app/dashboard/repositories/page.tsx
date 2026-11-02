@@ -2,7 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { GitFork, GitBranch, Plus, ExternalLink, Settings2, CheckCircle2, Shield, RefreshCw, ChevronRight, ArrowUpRight } from 'lucide-react';
+import {
+  GitFork,
+  GitBranch,
+  Plus,
+  ExternalLink,
+  Settings2,
+  CheckCircle2,
+  Shield,
+  RefreshCw,
+  ChevronRight,
+  ChevronLeft,
+  Search,
+  ArrowUpRight,
+  Filter,
+} from 'lucide-react';
 
 interface Repo {
   id: string;
@@ -17,6 +31,15 @@ interface Repo {
   };
 }
 
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 export default function RepositoriesPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,14 +47,47 @@ export default function RepositoriesPage() {
   const [reindexingId, setReindexingId] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const fetchRepos = async () => {
+  // Pagination & Filtering state
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  });
+
+  const fetchRepos = async (targetPage = page, searchTerm = search, provider = providerFilter, status = statusFilter) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/repositories', { credentials: 'include' });
+      const queryParams = new URLSearchParams({
+        page: String(targetPage),
+        limit: '10',
+      });
+      if (searchTerm.trim()) queryParams.set('search', searchTerm.trim());
+      if (provider !== 'all') queryParams.set('provider', provider);
+      if (status !== 'all') queryParams.set('status', status);
+
+      const res = await fetch(`/api/repositories?${queryParams.toString()}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.repositories)) {
-          setRepos(data.repositories);
+        const repoList = Array.isArray(data.data) ? data.data : (Array.isArray(data.repositories) ? data.repositories : []);
+        setRepos(repoList);
+        if (data.pagination) {
+          setPagination(data.pagination);
+        } else {
+          setPagination({
+            page: targetPage,
+            limit: 10,
+            total: repoList.length,
+            totalPages: Math.max(1, Math.ceil(repoList.length / 10)),
+            hasNext: false,
+            hasPrev: targetPage > 1,
+          });
         }
       }
     } catch (err) {
@@ -39,6 +95,30 @@ export default function RepositoriesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    setPage(newPage);
+    fetchRepos(newPage, search, providerFilter, statusFilter);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+    fetchRepos(1, val, providerFilter, statusFilter);
+  };
+
+  const handleProviderChange = (val: string) => {
+    setProviderFilter(val);
+    setPage(1);
+    fetchRepos(1, search, val, statusFilter);
+  };
+
+  const handleStatusChange = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+    fetchRepos(1, search, providerFilter, val);
   };
 
   const handleSyncInstallations = async () => {
@@ -225,21 +305,60 @@ export default function RepositoriesPage() {
 
       {/* Repositories List */}
       <div className="card-chai p-0 overflow-hidden">
-        <div className="p-5 border-b border-white/10 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <h2 className="font-montserrat font-medium text-white text-sm">Installed Repositories ({repos.length})</h2>
-            <span className="text-[11px] font-mono text-neutral-500">• Zero-config webhook sync enabled</span>
+        <div className="p-5 border-b border-white/10 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <h2 className="font-montserrat font-medium text-white text-sm">
+                Installed Repositories ({pagination.total})
+              </h2>
+              <span className="text-[11px] font-mono text-neutral-500">• Zero-config webhook sync enabled</span>
+            </div>
+            <button
+              onClick={handleSyncInstallations}
+              disabled={syncing}
+              className={`text-xs px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 flex items-center space-x-1.5 transition-colors ${
+                syncing ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+              <span>{syncing ? 'Syncing Repos...' : 'Sync Installations'}</span>
+            </button>
           </div>
-          <button
-            onClick={handleSyncInstallations}
-            disabled={syncing}
-            className={`text-xs px-3 py-1.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 flex items-center space-x-1.5 transition-colors ${
-              syncing ? 'opacity-70 cursor-not-allowed' : ''
-            }`}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'Syncing Repos...' : 'Sync Installations'}</span>
-          </button>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search repositories by name or provider..."
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full bg-white/[0.04] border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/30 transition-colors font-mono"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={providerFilter}
+                onChange={(e) => handleProviderChange(e.target.value)}
+                className="bg-neutral-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-white/30 font-mono"
+              >
+                <option value="all">All Providers</option>
+                <option value="github">GitHub</option>
+                <option value="bitbucket">Bitbucket</option>
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="bg-neutral-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-neutral-300 focus:outline-none focus:border-white/30 font-mono"
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active Only</option>
+                <option value="paused">Paused Only</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -343,6 +462,38 @@ export default function RepositoriesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {pagination.total > 0 && (
+          <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-neutral-400 font-mono bg-white/[0.01]">
+            <div>
+              Showing <span className="text-white font-medium">{(page - 1) * pagination.limit + 1}</span> to{' '}
+              <span className="text-white font-medium">{Math.min(page * pagination.limit, pagination.total)}</span> of{' '}
+              <span className="text-white font-medium">{pagination.total}</span> repositories
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(page - 1)}
+                disabled={!pagination.hasPrev || loading}
+                className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center space-x-1 transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+              <span className="px-2 text-neutral-300">
+                Page {page} of {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => handlePageChange(page + 1)}
+                disabled={!pagination.hasNext || loading}
+                className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center space-x-1 transition-colors"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>

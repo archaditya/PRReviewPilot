@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Ban,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Copy,
@@ -178,6 +179,14 @@ interface UserDetailedData {
     indexError?: string;
     createdAt: string;
   }>;
+  repositoriesPagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
   pullRequests: Array<{
     id: string;
     repositoryId: string;
@@ -244,6 +253,9 @@ function AdminConsoleInner() {
   const [userDetailsLoading, setUserDetailsLoading] = useState(false);
   const [userDetails, setUserDetails] = useState<UserDetailedData | null>(null);
   const [detailSubTab, setDetailSubTab] = useState<UserDetailSubTab>('overview');
+  const [modalRepoPage, setModalRepoPage] = useState(1);
+  const [modalRepoSearch, setModalRepoSearch] = useState('');
+  const [modalRepoLoading, setModalRepoLoading] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
   const [deletingUser, setDeletingUser] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -295,6 +307,8 @@ function AdminConsoleInner() {
     setUserDetailsLoading(true);
     setUserDetails(null);
     setDetailSubTab('overview');
+    setModalRepoPage(1);
+    setModalRepoSearch('');
     setDeleteConfirmEmail('');
     try {
       const res = await fetch(`/api/admin/users/${user.id}/details`, { credentials: 'include' });
@@ -308,6 +322,48 @@ function AdminConsoleInner() {
       showNotice('error', err.message);
     } finally {
       setUserDetailsLoading(false);
+    }
+  };
+
+  const fetchUserRepos = async (userId: string, targetPage: number, searchVal: string) => {
+    try {
+      setModalRepoLoading(true);
+      const queryParams = new URLSearchParams({
+        repoPage: String(targetPage),
+        repoLimit: '10',
+      });
+      if (searchVal.trim()) queryParams.set('repoSearch', searchVal.trim());
+      const res = await fetch(`/api/admin/users/${userId}/details?${queryParams.toString()}`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setUserDetails((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            repositories: data.repositories || [],
+            repositoriesPagination: data.repositoriesPagination,
+          };
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to paginate user repos:', err);
+    } finally {
+      setModalRepoLoading(false);
+    }
+  };
+
+  const handleModalRepoSearch = (val: string) => {
+    setModalRepoSearch(val);
+    setModalRepoPage(1);
+    if (inspectingUser) {
+      fetchUserRepos(inspectingUser.id, 1, val);
+    }
+  };
+
+  const handleModalRepoPageChange = (newPage: number) => {
+    setModalRepoPage(newPage);
+    if (inspectingUser) {
+      fetchUserRepos(inspectingUser.id, newPage, modalRepoSearch);
     }
   };
 
@@ -1449,7 +1505,7 @@ function AdminConsoleInner() {
             <div className="flex items-center gap-1 px-6 border-b border-white/10 bg-black/20 overflow-x-auto">
               {[
                 { id: 'overview', label: 'Overview & Diagnostics' },
-                { id: 'repos', label: `Connected Repos (${userDetails?.repositories?.length ?? 0})` },
+                { id: 'repos', label: `Connected Repos (${userDetails?.repositoriesPagination?.total ?? userDetails?.repositories?.length ?? 0})` },
                 { id: 'prs', label: `PRs & Reviews (${userDetails?.reviewJobs?.length ?? 0})` },
                 { id: 'restrictions', label: 'Restrictions & Quotas' },
                 { id: 'danger', label: 'Account Deletion' },
@@ -1560,70 +1616,124 @@ function AdminConsoleInner() {
                   {/* SUBTAB: CONNECTED REPOSITORIES */}
                   {detailSubTab === 'repos' && (
                     <div className="space-y-4">
+                      {/* Search Bar */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="relative flex-1 max-w-sm">
+                          <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Filter repos by name or provider..."
+                            value={modalRepoSearch}
+                            onChange={(e) => handleModalRepoSearch(e.target.value)}
+                            className="w-full bg-white/[0.04] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/30 transition-colors font-mono"
+                          />
+                        </div>
+                        {modalRepoLoading && (
+                          <span className="text-[11px] font-mono text-neutral-400 flex items-center gap-1.5">
+                            <RefreshCw className="w-3 h-3 animate-spin text-orange-400" />
+                            Filtering...
+                          </span>
+                        )}
+                      </div>
+
                       {userDetails?.repositories?.length === 0 ? (
                         <div className="py-12 text-center text-xs font-mono text-neutral-500">
-                          This user has not connected any repositories yet.
+                          {modalRepoSearch ? 'No repositories matching your search query.' : 'This user has not connected any repositories yet.'}
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs font-mono">
-                            <thead>
-                              <tr className="border-b border-white/10 text-neutral-400 text-[11px]">
-                                <th className="py-2.5 px-3">Repository</th>
-                                <th className="py-2.5 px-3">Branch</th>
-                                <th className="py-2.5 px-3">Index Status</th>
-                                <th className="py-2.5 px-3">Files / Symbols</th>
-                                <th className="py-2.5 px-3 text-right">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {userDetails?.repositories?.map((repo) => (
-                                <tr key={repo.id} className="hover:bg-white/[0.02] transition-colors">
-                                  <td className="py-3 px-3">
-                                    <div className="font-semibold text-white">{repo.providerFullName || repo.name}</div>
-                                    <div className="text-[10px] text-neutral-500">{repo.provider}</div>
-                                  </td>
-                                  <td className="py-3 px-3 text-neutral-400">{repo.defaultBranch || 'main'}</td>
-                                  <td className="py-3 px-3">
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                                        repo.indexStatus === 'INDEXED'
-                                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                                          : repo.indexStatus === 'INDEXING'
-                                          ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30 animate-pulse'
-                                          : repo.indexStatus === 'FAILED'
-                                          ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                                          : 'bg-neutral-500/15 text-neutral-400 border border-neutral-500/30'
-                                      }`}
-                                    >
-                                      {repo.indexStatus}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-3 text-neutral-300">
-                                    {repo.fileCount ?? 0} files / {repo.symbolCount ?? 0} symbols
-                                  </td>
-                                  <td className="py-3 px-3 text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      <button
-                                        onClick={() => handleTriggerRepoReindex(repo.id)}
-                                        className="px-2.5 py-1 rounded border border-white/10 hover:border-orange-500/40 bg-white/5 hover:bg-orange-500/10 text-orange-300 transition-colors"
-                                        title="Trigger Reindexing"
-                                      >
-                                        Reindex
-                                      </button>
-                                      <button
-                                        onClick={() => handleResetRepoIndex(repo.id)}
-                                        className="px-2.5 py-1 rounded border border-white/10 hover:border-red-500/40 bg-white/5 hover:bg-red-500/10 text-neutral-400 hover:text-red-400 transition-colors"
-                                        title="Reset Index Lock"
-                                      >
-                                        Reset
-                                      </button>
-                                    </div>
-                                  </td>
+                        <div className="space-y-3">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs font-mono">
+                              <thead>
+                                <tr className="border-b border-white/10 text-neutral-400 text-[11px]">
+                                  <th className="py-2.5 px-3">Repository</th>
+                                  <th className="py-2.5 px-3">Branch</th>
+                                  <th className="py-2.5 px-3">Index Status</th>
+                                  <th className="py-2.5 px-3">Files / Symbols</th>
+                                  <th className="py-2.5 px-3 text-right">Actions</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {userDetails?.repositories?.map((repo) => (
+                                  <tr key={repo.id} className="hover:bg-white/[0.02] transition-colors">
+                                    <td className="py-3 px-3">
+                                      <div className="font-semibold text-white">{repo.providerFullName || repo.name}</div>
+                                      <div className="text-[10px] text-neutral-500">{repo.provider}</div>
+                                    </td>
+                                    <td className="py-3 px-3 text-neutral-400">{repo.defaultBranch || 'main'}</td>
+                                    <td className="py-3 px-3">
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                          repo.indexStatus === 'INDEXED'
+                                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                            : repo.indexStatus === 'INDEXING'
+                                            ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30 animate-pulse'
+                                            : repo.indexStatus === 'FAILED'
+                                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                            : 'bg-neutral-500/15 text-neutral-400 border border-neutral-500/30'
+                                        }`}
+                                      >
+                                        {repo.indexStatus}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-3 text-neutral-300">
+                                      {repo.fileCount ?? 0} files / {repo.symbolCount ?? 0} symbols
+                                    </td>
+                                    <td className="py-3 px-3 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          onClick={() => handleTriggerRepoReindex(repo.id)}
+                                          className="px-2.5 py-1 rounded border border-white/10 hover:border-orange-500/40 bg-white/5 hover:bg-orange-500/10 text-orange-300 transition-colors"
+                                          title="Trigger Reindexing"
+                                        >
+                                          Reindex
+                                        </button>
+                                        <button
+                                          onClick={() => handleResetRepoIndex(repo.id)}
+                                          className="px-2.5 py-1 rounded border border-white/10 hover:border-red-500/40 bg-white/5 hover:bg-red-500/10 text-neutral-400 hover:text-red-400 transition-colors"
+                                          title="Reset Index Lock"
+                                        >
+                                          Reset
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Pagination Footer in Modal */}
+                          {userDetails?.repositoriesPagination && userDetails.repositoriesPagination.total > 0 && (
+                            <div className="p-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-neutral-400 font-mono">
+                              <div>
+                                Showing <span className="text-white font-medium">{(modalRepoPage - 1) * userDetails.repositoriesPagination.limit + 1}</span> to{' '}
+                                <span className="text-white font-medium">{Math.min(modalRepoPage * userDetails.repositoriesPagination.limit, userDetails.repositoriesPagination.total)}</span> of{' '}
+                                <span className="text-white font-medium">{userDetails.repositoriesPagination.total}</span> repositories
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => handleModalRepoPageChange(modalRepoPage - 1)}
+                                  disabled={!userDetails.repositoriesPagination.hasPrev || modalRepoLoading}
+                                  className="px-2.5 py-1 rounded border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center space-x-1 transition-colors text-[11px]"
+                                >
+                                  <ChevronLeft className="w-3 h-3" />
+                                  <span>Prev</span>
+                                </button>
+                                <span className="px-1 text-neutral-300 text-[11px]">
+                                  {modalRepoPage} / {userDetails.repositoriesPagination.totalPages}
+                                </span>
+                                <button
+                                  onClick={() => handleModalRepoPageChange(modalRepoPage + 1)}
+                                  disabled={!userDetails.repositoriesPagination.hasNext || modalRepoLoading}
+                                  className="px-2.5 py-1 rounded border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center space-x-1 transition-colors text-[11px]"
+                                >
+                                  <span>Next</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

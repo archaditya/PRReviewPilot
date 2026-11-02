@@ -2,6 +2,8 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const { getProvider } = require('../integrations/providers');
 const config = require('../config');
+const ApiResponse = require('../utils/api-response');
+const QueryParser = require('../utils/query-parser');
 
 class RepoController {
   // Helper: Get all active organization IDs for the authenticated user
@@ -160,27 +162,71 @@ class RepoController {
     }
   }
 
-  // GET /api/repositories?orgId=...
+  // GET /api/repositories?orgId=...&page=1&limit=10&search=...&provider=...&status=...&indexStatus=...
   async listConnectedRepositories(req, res, next) {
     try {
-      const { orgId } = req.query;
+      const { orgId, search, q } = req.query;
       const user = req.user;
 
       const allowedOrgIds = await this.getUserOrgIds(user.id, orgId);
       if (!allowedOrgIds || allowedOrgIds.length === 0) {
-        return res.json({ success: true, repositories: [] });
+        return ApiResponse.paginated(res, {
+          data: [],
+          total: 0,
+          page: 1,
+          limit: 10,
+          resourceKey: 'repositories',
+        });
       }
 
-      const repos = await db.Repository.findAll({
-        where: {
-          status: 'active',
-          organizationId: { [Op.in]: allowedOrgIds },
-        },
+      const { page, limit, offset } = QueryParser.parsePagination(req.query, 10, 100);
+
+      const whereClause = {
+        organizationId: { [Op.in]: allowedOrgIds },
+      };
+
+      // Attribute filters
+      const filters = QueryParser.parseFilters(req.query, {
+        provider: 'provider',
+        status: 'status',
+        indexStatus: 'indexStatus',
+        language: 'language',
+      });
+      Object.assign(whereClause, filters);
+
+      // Default status to active unless explicitly requested
+      if (!req.query.status) {
+        whereClause.status = 'active';
+      }
+
+      // Multi-field search across name, providerFullName, description, language
+      const searchTerm = search || q;
+      const searchClause = QueryParser.buildSearchClause(searchTerm, [
+        'name',
+        'providerFullName',
+        'description',
+        'language',
+      ]);
+      if (searchClause) {
+        whereClause[Op.and] = [searchClause];
+      }
+
+      const { rows: repos, count: total } = await db.Repository.findAndCountAll({
+        where: whereClause,
         include: [{ model: db.Organization, as: 'organization', attributes: ['id', 'name', 'slug'] }],
         order: [['createdAt', 'DESC']],
+        limit,
+        offset,
       });
 
-      return res.json({ success: true, repositories: repos });
+      return ApiResponse.paginated(res, {
+        data: repos,
+        total,
+        page,
+        limit,
+        message: 'Repositories retrieved successfully',
+        resourceKey: 'repositories',
+      });
     } catch (err) {
       next(err);
     }

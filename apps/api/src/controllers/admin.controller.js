@@ -1,7 +1,10 @@
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const db = require('../models');
 const config = require('../config');
 const logger = require('../utils/logger');
+const ApiResponse = require('../utils/api-response');
+const QueryParser = require('../utils/query-parser');
 
 class AdminController {
   // GET /api/admin/stats
@@ -284,13 +287,32 @@ class AdminController {
     }
   }
 
-  // GET /api/admin/jobs
+  // GET /api/admin/jobs?page=1&limit=20&search=...&status=...&riskLevel=...
   async getJobsAudit(req, res, next) {
     try {
+      const { search, q } = req.query;
+      const { page, limit, offset } = QueryParser.parsePagination(req.query, 20, 100);
+
+      const where = {};
+      const filters = QueryParser.parseFilters(req.query, {
+        status: 'status',
+        riskLevel: 'riskLevel',
+      });
+      Object.assign(where, filters);
+
+      const searchTerm = search || q;
+      const prWhere = {};
+      if (searchTerm && searchTerm.trim()) {
+        prWhere.title = { [Op.iLike]: `%${searchTerm.trim()}%` };
+      }
+
       let reviewJobs = [];
+      let total = 0;
       try {
-        reviewJobs = await db.ReviewJob.findAll({
-          limit: 50,
+        const result = await db.ReviewJob.findAndCountAll({
+          where,
+          limit,
+          offset,
           order: [['createdAt', 'DESC']],
           include: [
             {
@@ -303,16 +325,23 @@ class AdminController {
               model: db.PullRequest,
               as: 'pullRequest',
               attributes: ['id', 'prNumber', 'title', 'headBranch', 'baseBranch'],
-              required: false,
+              where: Object.keys(prWhere).length > 0 ? prWhere : undefined,
+              required: Object.keys(prWhere).length > 0,
             },
           ],
         });
+        reviewJobs = result.rows;
+        total = result.count;
       } catch (qErr) {
         logger.warn({ err: qErr.message }, 'Failed detailed reviewJobs join in admin, falling back');
-        reviewJobs = await db.ReviewJob.findAll({
-          limit: 50,
+        const result = await db.ReviewJob.findAndCountAll({
+          where,
+          limit,
+          offset,
           order: [['createdAt', 'DESC']],
         });
+        reviewJobs = result.rows;
+        total = result.count;
       }
 
       let repoIndexing = [];
@@ -331,15 +360,20 @@ class AdminController {
             'updatedAt',
           ],
           order: [['updatedAt', 'DESC']],
+          limit: 20,
         });
       } catch (rErr) {
         logger.warn({ err: rErr.message }, 'Failed repoIndexing query in admin');
       }
 
-      return res.json({
-        success: true,
-        reviewJobs,
-        repoIndexing,
+      return ApiResponse.paginated(res, {
+        data: reviewJobs,
+        total,
+        page,
+        limit,
+        message: 'Admin jobs retrieved successfully',
+        resourceKey: 'reviewJobs',
+        extra: { repoIndexing },
       });
     } catch (err) {
       next(err);
@@ -382,10 +416,32 @@ class AdminController {
     }
   }
 
-  // GET /api/admin/users
+  // GET /api/admin/users?page=1&limit=10&search=...&role=...&status=...
   async listUsersWithUsage(req, res, next) {
     try {
-      const users = await db.User.findAll({
+      const { search, q } = req.query;
+      const { page, limit, offset } = QueryParser.parsePagination(req.query, 10, 100);
+
+      const whereClause = {};
+      const filters = QueryParser.parseFilters(req.query, {
+        role: 'role',
+        status: 'status',
+      });
+      Object.assign(whereClause, filters);
+
+      const searchTerm = search || q;
+      const searchClause = QueryParser.buildSearchClause(searchTerm, [
+        'name',
+        'email',
+        'githubUsername',
+        'bitbucketUsername',
+      ]);
+      if (searchClause) {
+        whereClause[Op.and] = [searchClause];
+      }
+
+      const { rows: users, count: total } = await db.User.findAndCountAll({
+        where: whereClause,
         attributes: [
           'id',
           'name',
@@ -406,9 +462,18 @@ class AdminController {
           },
         ],
         order: [['createdAt', 'DESC']],
+        limit,
+        offset,
       });
 
-      return res.json({ success: true, users });
+      return ApiResponse.paginated(res, {
+        data: users,
+        total,
+        page,
+        limit,
+        message: 'Users retrieved successfully',
+        resourceKey: 'users',
+      });
     } catch (err) {
       next(err);
     }
@@ -500,10 +565,23 @@ class AdminController {
       if (instIds.length > 0) whereConditions.push({ installationId: { [Op.in]: instIds } });
       if (allOrgIds.length > 0) whereConditions.push({ organizationId: { [Op.in]: allOrgIds } });
 
+      const repoPage = Math.max(1, parseInt(req.query.repoPage, 10) || 1);
+      const repoLimit = Math.min(50, Math.max(1, parseInt(req.query.repoLimit, 10) || 10));
+      const repoOffset = (repoPage - 1) * repoLimit;
+
+      const repoWhere = whereConditions.length > 0 ? { [Op.or]: whereConditions } : null;
+      if (repoWhere && req.query.repoSearch && req.query.repoSearch.trim()) {
+        const searchClause = QueryParser.buildSearchClause(req.query.repoSearch, ['name', 'providerFullName']);
+        if (searchClause) {
+          repoWhere[Op.and] = [searchClause];
+        }
+      }
+
       let repositories = [];
-      if (whereConditions.length > 0) {
-        repositories = await db.Repository.findAll({
-          where: { [Op.or]: whereConditions },
+      let totalRepositories = 0;
+      if (repoWhere) {
+        const repoResult = await db.Repository.findAndCountAll({
+          where: repoWhere,
           attributes: [
             'id',
             'name',
@@ -519,7 +597,11 @@ class AdminController {
             'createdAt',
           ],
           order: [['createdAt', 'DESC']],
+          limit: repoLimit,
+          offset: repoOffset,
         });
+        repositories = repoResult.rows;
+        totalRepositories = repoResult.count;
       }
 
       const repoIds = repositories.map((r) => r.id);
@@ -557,6 +639,14 @@ class AdminController {
         user,
         installations,
         repositories,
+        repositoriesPagination: {
+          page: repoPage,
+          limit: repoLimit,
+          total: totalRepositories,
+          totalPages: Math.ceil(totalRepositories / repoLimit) || 1,
+          hasNext: repoPage < (Math.ceil(totalRepositories / repoLimit) || 1),
+          hasPrev: repoPage > 1,
+        },
         pullRequests,
         reviewJobs,
       });
