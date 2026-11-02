@@ -1,8 +1,46 @@
+const { Op } = require('sequelize');
 const db = require('../models');
 const { getProvider } = require('../integrations/providers');
 const config = require('../config');
 
 class RepoController {
+  // Helper: Get all active organization IDs for the authenticated user
+  async getUserOrgIds(userId, requestedOrgId = null) {
+    const memberships = await db.OrganizationMember.findAll({
+      where: { userId, status: 'active' },
+      attributes: ['organizationId', 'role'],
+    });
+
+    const allowedOrgIds = memberships.map((m) => m.organizationId);
+
+    if (requestedOrgId) {
+      if (!allowedOrgIds.includes(requestedOrgId)) {
+        return null; // User does not belong to the requested org
+      }
+      return [requestedOrgId];
+    }
+
+    return allowedOrgIds;
+  }
+
+  // Helper: Verify user has access to a specific repository
+  async getAuthorizedRepo(repoId, userId) {
+    const allowedOrgIds = await this.getUserOrgIds(userId);
+    if (!allowedOrgIds || allowedOrgIds.length === 0) {
+      return null;
+    }
+
+    const repo = await db.Repository.findOne({
+      where: {
+        id: repoId,
+        organizationId: { [Op.in]: allowedOrgIds },
+      },
+      include: [{ model: db.Organization, as: 'organization' }],
+    });
+
+    return repo;
+  }
+
   // GET /api/repositories/provider-repos?provider=github|bitbucket&orgId=...
   async listAvailableProviderRepos(req, res, next) {
     try {
@@ -128,13 +166,16 @@ class RepoController {
       const { orgId } = req.query;
       const user = req.user;
 
-      const whereClause = { status: 'active' };
-      if (orgId) {
-        whereClause.organizationId = orgId;
+      const allowedOrgIds = await this.getUserOrgIds(user.id, orgId);
+      if (!allowedOrgIds || allowedOrgIds.length === 0) {
+        return res.json({ success: true, repositories: [] });
       }
 
       const repos = await db.Repository.findAll({
-        where: whereClause,
+        where: {
+          status: 'active',
+          organizationId: { [Op.in]: allowedOrgIds },
+        },
         include: [{ model: db.Organization, as: 'organization', attributes: ['id', 'name', 'slug'] }],
         order: [['createdAt', 'DESC']],
       });
@@ -149,12 +190,10 @@ class RepoController {
   async getRepositoryDetails(req, res, next) {
     try {
       const { id } = req.params;
-      const repo = await db.Repository.findByPk(id, {
-        include: [{ model: db.Organization, as: 'organization' }],
-      });
+      const repo = await this.getAuthorizedRepo(id, req.user.id);
 
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
       }
 
       // Fetch recent review jobs for this repository
@@ -204,9 +243,16 @@ class RepoController {
       const { id } = req.params;
       const { reviewConfig, status } = req.body;
 
-      const repo = await db.Repository.findByPk(id);
+      const repo = await this.getAuthorizedRepo(id, req.user.id);
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
+      }
+
+      const membership = await db.OrganizationMember.findOne({
+        where: { organizationId: repo.organizationId, userId: req.user.id, status: 'active' },
+      });
+      if (!membership || !['owner', 'admin'].includes(membership.role)) {
+        return res.status(403).json({ success: false, error: 'Only organization admins can modify repository config.' });
       }
 
       if (status && ['active', 'paused', 'archived'].includes(status)) {
@@ -231,9 +277,9 @@ class RepoController {
   async reindexRepository(req, res, next) {
     try {
       const { id } = req.params;
-      const repo = await db.Repository.findByPk(id);
+      const repo = await this.getAuthorizedRepo(id, req.user.id);
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
       }
 
       repo.indexStatus = 'INDEXING';
@@ -282,9 +328,9 @@ class RepoController {
   async resetIndexRepository(req, res, next) {
     try {
       const { id } = req.params;
-      const repo = await db.Repository.findByPk(id);
+      const repo = await this.getAuthorizedRepo(id, req.user.id);
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
       }
 
       repo.indexStatus = 'NOT_INDEXED';
@@ -305,9 +351,9 @@ class RepoController {
     try {
       const { id } = req.params;
       const { message, history } = req.body;
-      const repo = await db.Repository.findByPk(id);
+      const repo = await this.getAuthorizedRepo(id, req.user.id);
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
       }
 
       const chatService = require('../services/chat.service');
@@ -328,9 +374,9 @@ class RepoController {
   async getGraphOverview(req, res, next) {
     try {
       const { id } = req.params;
-      const repo = await db.Repository.findByPk(id);
+      const repo = await this.getAuthorizedRepo(id, req.user.id);
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
       }
 
       const indexerClient = require('../integrations/indexer-service-client');

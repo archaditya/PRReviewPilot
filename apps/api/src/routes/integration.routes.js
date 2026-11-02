@@ -20,11 +20,18 @@ router.get('/github/install', authenticate, async (req, res) => {
 // GitHub redirects here after a user installs or updates the GitHub App
 router.get('/github/setup', async (req, res) => {
   try {
-    const { installation_id, setup_action } = req.query;
-    logger.info({ installation_id, setup_action }, 'GitHub App setup redirect received');
+    const { installation_id, setup_action, state: orgId } = req.query;
+    logger.info({ installation_id, setup_action, orgId }, 'GitHub App setup redirect received');
 
     if (installation_id) {
-      await githubAppService.syncInstallation(installation_id);
+      let userId = null;
+      if (orgId) {
+        const member = await db.OrganizationMember.findOne({
+          where: { organizationId: orgId, role: ['owner', 'admin'], status: 'active' },
+        });
+        if (member) userId = member.userId;
+      }
+      await githubAppService.syncInstallation(installation_id, userId, orgId);
     }
     return res.redirect(`${config.appUrl}/dashboard/repositories?installed=true`);
   } catch (err) {

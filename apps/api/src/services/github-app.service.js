@@ -89,7 +89,7 @@ class GitHubAppService {
   /**
    * Sync a specific installation by ID: fetches metadata and all granted repositories
    */
-  async syncInstallation(installationId, userId = null) {
+  async syncInstallation(installationId, userId = null, targetOrgId = null) {
     if (!this.app && this.initPromise) {
       await this.initPromise;
     }
@@ -108,11 +108,15 @@ class GitHubAppService {
     const accountType = instData.account?.type || 'User';
     const providerInstallationId = String(instData.id);
 
-    // 2. Locate or create organization
+    // 2. Locate or create organization strictly scoped to the installing context
     let org = null;
-    if (userId) {
+    if (targetOrgId) {
+      org = await db.Organization.findByPk(targetOrgId);
+    }
+
+    if (!org && userId) {
       const membership = await db.OrganizationMember.findOne({
-        where: { userId },
+        where: { userId, status: 'active' },
         include: [{ model: db.Organization, as: 'organization' }],
       });
       if (membership) org = membership.organization;
@@ -121,15 +125,23 @@ class GitHubAppService {
     if (!org) {
       org = await db.Organization.findOne({ where: { slug: accountLogin.toLowerCase() } });
     }
-    if (!org) {
-      // Find first organization in DB (e.g. Admin Workspace)
-      org = await db.Organization.findOne({ order: [['createdAt', 'ASC']] });
-    }
+
+    // Never fallback to arbitrary first organization in DB! Isolate into a dedicated workspace:
     if (!org) {
       org = await db.Organization.create({
-        name: accountLogin,
-        slug: accountLogin.toLowerCase(),
+        name: `${accountLogin}'s Workspace`,
+        slug: `${accountLogin.toLowerCase()}-${Date.now().toString(36)}`,
+        ownerUserId: userId || null,
       });
+
+      if (userId) {
+        await db.OrganizationMember.create({
+          organizationId: org.id,
+          userId,
+          role: 'owner',
+          status: 'active',
+        });
+      }
     }
 
     // 3. Upsert Installation record
@@ -199,7 +211,7 @@ class GitHubAppService {
   }
 
   /**
-   * Sync all installations registered to this GitHub App
+   * Sync installations scoped strictly to the requesting user's active organizations
    */
   async syncAllInstallations(userId = null) {
     if (!this.app && this.initPromise) {
@@ -209,15 +221,36 @@ class GitHubAppService {
       throw new Error('GitHub App is not configured on this server');
     }
 
-    const { data: installations } = await this.app.octokit.request('GET /app/installations');
-    const allRepos = [];
+    if (!userId) {
+      return [];
+    }
 
+    const { Op } = require('sequelize');
+    const memberships = await db.OrganizationMember.findAll({
+      where: { userId, status: 'active' },
+      attributes: ['organizationId'],
+    });
+
+    const orgIds = memberships.map((m) => m.organizationId);
+    if (!orgIds.length) {
+      return [];
+    }
+
+    const installations = await db.Installation.findAll({
+      where: {
+        provider: 'github',
+        organizationId: { [Op.in]: orgIds },
+        status: 'active',
+      },
+    });
+
+    const allRepos = [];
     for (const inst of installations) {
       try {
-        const res = await this.syncInstallation(inst.id, userId);
+        const res = await this.syncInstallation(inst.providerInstallationId, userId, inst.organizationId);
         allRepos.push(...res.repositories);
       } catch (err) {
-        logger.error({ err: err.message, installationId: inst.id }, 'Failed to sync installation');
+        logger.error({ err: err.message, installationId: inst.providerInstallationId }, 'Failed to sync user installation');
       }
     }
 

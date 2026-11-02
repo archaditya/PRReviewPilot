@@ -1,7 +1,27 @@
+const { Op } = require('sequelize');
 const db = require('../models');
 const reviewService = require('../services/review.service');
 
 class ReviewController {
+  // Helper: Get all active organization IDs for the authenticated user
+  async getUserOrgIds(userId, requestedOrgId = null) {
+    const memberships = await db.OrganizationMember.findAll({
+      where: { userId, status: 'active' },
+      attributes: ['organizationId'],
+    });
+
+    const allowedOrgIds = memberships.map((m) => m.organizationId);
+
+    if (requestedOrgId) {
+      if (!allowedOrgIds.includes(requestedOrgId)) {
+        return null;
+      }
+      return [requestedOrgId];
+    }
+
+    return allowedOrgIds;
+  }
+
   // POST /api/reviews/trigger
   async triggerReview(req, res, next) {
     try {
@@ -15,9 +35,16 @@ class ReviewController {
         });
       }
 
-      const repo = await db.Repository.findByPk(repositoryId);
+      const allowedOrgIds = await this.getUserOrgIds(user.id);
+      const repo = await db.Repository.findOne({
+        where: {
+          id: repositoryId,
+          organizationId: { [Op.in]: allowedOrgIds },
+        },
+      });
+
       if (!repo) {
-        return res.status(404).json({ success: false, error: 'Repository not found' });
+        return res.status(404).json({ success: false, error: 'Repository not found or access denied.' });
       }
 
       const token = repo.provider === 'github' ? user.githubAccessToken : user.bitbucketAccessToken;
@@ -41,6 +68,12 @@ class ReviewController {
   async listReviews(req, res, next) {
     try {
       const { repoId, orgId, status } = req.query;
+      const user = req.user;
+
+      const allowedOrgIds = await this.getUserOrgIds(user.id, orgId);
+      if (!allowedOrgIds || allowedOrgIds.length === 0) {
+        return res.json({ success: true, reviews: [] });
+      }
 
       const where = {};
       if (repoId) where.repositoryId = repoId;
@@ -52,8 +85,11 @@ class ReviewController {
           {
             model: db.Repository,
             as: 'repository',
-            attributes: ['id', 'name', 'provider', 'providerFullName'],
-            ...(orgId ? { where: { organizationId: orgId } } : {}),
+            attributes: ['id', 'name', 'provider', 'providerFullName', 'organizationId'],
+            where: {
+              organizationId: { [Op.in]: allowedOrgIds },
+            },
+            required: true,
           },
           {
             model: db.PullRequest,
@@ -75,6 +111,7 @@ class ReviewController {
   async getReviewDetails(req, res, next) {
     try {
       const { id } = req.params;
+      const allowedOrgIds = await this.getUserOrgIds(req.user.id);
 
       const job = await db.ReviewJob.findByPk(id, {
         include: [
@@ -85,8 +122,8 @@ class ReviewController {
         ],
       });
 
-      if (!job) {
-        return res.status(404).json({ success: false, error: 'Review job not found' });
+      if (!job || !job.repository || !allowedOrgIds.includes(job.repository.organizationId)) {
+        return res.status(404).json({ success: false, error: 'Review job not found or access denied.' });
       }
 
       return res.json({ success: true, review: job });
@@ -100,6 +137,14 @@ class ReviewController {
     try {
       const { jobId, findingId } = req.params;
       const { status } = req.body;
+      const allowedOrgIds = await this.getUserOrgIds(req.user.id);
+
+      const job = await db.ReviewJob.findByPk(jobId, {
+        include: [{ model: db.Repository, as: 'repository' }],
+      });
+      if (!job || !job.repository || !allowedOrgIds.includes(job.repository.organizationId)) {
+        return res.status(404).json({ success: false, error: 'Review job not found or access denied.' });
+      }
 
       if (!['resolved', 'dismissed', 'open'].includes(status)) {
         return res.status(400).json({ success: false, error: 'Invalid finding status' });
